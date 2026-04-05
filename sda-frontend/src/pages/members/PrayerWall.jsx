@@ -1,18 +1,22 @@
 // src/pages/members/PrayerWall.jsx
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getPrayerRequests,
   getTrendingPrayers,
-  getPrayerRequest, 
   createPrayerRequest,
   prayForRequest,
   getTestimonies,
   createTestimony,
   encourageTestimony,
+  getMyPrayerRequests,
+  updatePrayerRequest,
+  deletePrayerRequest,
+  getMyTestimonies,
+  updateTestimony,
+  deleteTestimony,
 } from '../../services/api';
-import ReportButton from '../../components/Reports/ReportButton';
-import { CONTENT_TYPES } from "../../utils/constants"; 
 
 function PrayerWall() {
   const { user } = useAuth();
@@ -20,16 +24,28 @@ function PrayerWall() {
   const [prayerRequests, setPrayerRequests] = useState([]);
   const [trendingPrayers, setTrendingPrayers] = useState([]);
   const [testimonies, setTestimonies] = useState([]);
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showNewPrayerForm, setShowNewPrayerForm] = useState(false);
-  const [showTestimonyForm, setShowTestimonyForm] = useState(false);
-  
+  const [showNewPrayerModal, setShowNewPrayerModal] = useState(false);
+  const [showTestimonyModal, setShowTestimonyModal] = useState(false);
+
+  // Track which items the current user has prayed for / encouraged
+  const [prayedSet, setPrayedSet] = useState(new Set());
+  const [encouragedSet, setEncouragedSet] = useState(new Set());
+
+  // Edit states
+  const [editingPrayerId, setEditingPrayerId] = useState(null);
+  const [editingPrayerContent, setEditingPrayerContent] = useState('');
+  const [editingTestimonyId, setEditingTestimonyId] = useState(null);
+  const [editingTestimonyData, setEditingTestimonyData] = useState({ title: '', content: '', prayerRequestId: '' });
+
+  // For linking testimonies to a prayer request
+  const [myPrayerRequests, setMyPrayerRequests] = useState([]);
+  const [fetchingMyPrayerRequests, setFetchingMyPrayerRequests] = useState(false);
+
   const [newPrayer, setNewPrayer] = useState({
     content: '',
     isAnonymous: false,
   });
-
   const [newTestimony, setNewTestimony] = useState({
     title: '',
     content: '',
@@ -40,12 +56,19 @@ function PrayerWall() {
     fetchData();
   }, [activeTab]);
 
+  // When testimony modal opens, fetch user's own prayer requests
+  useEffect(() => {
+    if (showTestimonyModal && user) {
+      fetchMyPrayerRequests();
+    }
+  }, [showTestimonyModal, user]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
       if (activeTab === 'prayer') {
         const [requestsRes, trendingRes] = await Promise.all([
-          getPrayerRequests(user?.city),
+          getPrayerRequests(user?.locationName),
           getTrendingPrayers(),
         ]);
         setPrayerRequests(requestsRes.data.requests || []);
@@ -61,702 +84,745 @@ function PrayerWall() {
     }
   };
 
+  const fetchMyPrayerRequests = async () => {
+    setFetchingMyPrayerRequests(true);
+    try {
+      const response = await getMyPrayerRequests();
+      setMyPrayerRequests(response.data || []);
+    } catch (error) {
+      console.error('Error fetching my prayer requests:', error);
+    } finally {
+      setFetchingMyPrayerRequests(false);
+    }
+  };
+
+  // ============ PRAYER REQUESTS ============
   const handleCreatePrayer = async (e) => {
     e.preventDefault();
     try {
       await createPrayerRequest(newPrayer);
       setNewPrayer({ content: '', isAnonymous: false });
-      setShowNewPrayerForm(false);
+      setShowNewPrayerModal(false);
       fetchData();
     } catch (error) {
+      console.error('Error creating prayer request:', error);
       alert('Error creating prayer request');
     }
   };
 
   const handlePray = async (requestId) => {
+    const alreadyPrayed = prayedSet.has(requestId);
+
+    // Optimistic UI
+    setPrayedSet(prev => {
+      const next = new Set(prev);
+      alreadyPrayed ? next.delete(requestId) : next.add(requestId);
+      return next;
+    });
+    setPrayerRequests(prev => prev.map(req =>
+      req.id === requestId
+        ? { ...req, prayedCount: Math.max(0, (req.prayedCount || 0) + (alreadyPrayed ? -1 : 1)) }
+        : req
+    ));
+    setTrendingPrayers(prev => prev.map(req =>
+      req.id === requestId
+        ? { ...req, prayedCount: Math.max(0, (req.prayedCount || 0) + (alreadyPrayed ? -1 : 1)) }
+        : req
+    ));
+
     try {
       await prayForRequest(requestId);
-      if (selectedRequest && selectedRequest.id === requestId) {
-        // Refresh selected request
-        const updated = await getPrayerRequest(requestId);
-        setSelectedRequest(updated.data);
-      } else {
-        fetchData();
-      }
     } catch (error) {
-      alert('Error praying for request');
+      // Revert
+      setPrayedSet(prev => {
+        const next = new Set(prev);
+        alreadyPrayed ? next.add(requestId) : next.delete(requestId);
+        return next;
+      });
+      setPrayerRequests(prev => prev.map(req =>
+        req.id === requestId
+          ? { ...req, prayedCount: Math.max(0, (req.prayedCount || 0) + (alreadyPrayed ? 1 : -1)) }
+          : req
+      ));
+      setTrendingPrayers(prev => prev.map(req =>
+        req.id === requestId
+          ? { ...req, prayedCount: Math.max(0, (req.prayedCount || 0) + (alreadyPrayed ? 1 : -1)) }
+          : req
+      ));
+      console.error('Error praying for request:', error);
     }
   };
 
-  const handleViewRequest = async (requestId) => {
+  // Edit prayer request
+  const startEditPrayer = (prayer) => {
+    setEditingPrayerId(prayer.id);
+    setEditingPrayerContent(prayer.content);
+  };
+
+  const cancelEditPrayer = () => {
+    setEditingPrayerId(null);
+    setEditingPrayerContent('');
+  };
+
+  const saveEditPrayer = async (prayerId) => {
     try {
-      const response = await getPrayerRequest(requestId);
-      setSelectedRequest(response.data);
+      await updatePrayerRequest(prayerId, { content: editingPrayerContent });
+      setEditingPrayerId(null);
+      setEditingPrayerContent('');
+      fetchData();
     } catch (error) {
-      console.error('Error fetching request:', error);
+      console.error('Error updating prayer request:', error);
+      alert('Failed to update prayer request');
     }
   };
 
+  const deletePrayer = async (prayerId) => {
+    if (!window.confirm('Are you sure you want to delete this prayer request? This cannot be undone.')) return;
+    try {
+      await deletePrayerRequest(prayerId);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting prayer request:', error);
+      alert('Failed to delete prayer request');
+    }
+  };
+
+  // ============ TESTIMONIES ============
   const handleCreateTestimony = async (e) => {
     e.preventDefault();
     try {
       await createTestimony(newTestimony);
       setNewTestimony({ title: '', content: '', prayerRequestId: '' });
-      setShowTestimonyForm(false);
+      setShowTestimonyModal(false);
       fetchData();
     } catch (error) {
+      console.error('Error sharing testimony:', error);
       alert('Error sharing testimony');
     }
   };
 
   const handleEncourage = async (testimonyId) => {
+    const alreadyEncouraged = encouragedSet.has(testimonyId);
+
+    setEncouragedSet(prev => {
+      const next = new Set(prev);
+      alreadyEncouraged ? next.delete(testimonyId) : next.add(testimonyId);
+      return next;
+    });
+    setTestimonies(prev => prev.map(t =>
+      t.id === testimonyId
+        ? { ...t, encouragedCount: Math.max(0, (t.encouragedCount || 0) + (alreadyEncouraged ? -1 : 1)) }
+        : t
+    ));
+
     try {
       await encourageTestimony(testimonyId);
+    } catch (error) {
+      setEncouragedSet(prev => {
+        const next = new Set(prev);
+        alreadyEncouraged ? next.add(testimonyId) : next.delete(testimonyId);
+        return next;
+      });
+      setTestimonies(prev => prev.map(t =>
+        t.id === testimonyId
+          ? { ...t, encouragedCount: Math.max(0, (t.encouragedCount || 0) + (alreadyEncouraged ? 1 : -1)) }
+          : t
+      ));
+      console.error('Error encouraging testimony:', error);
+    }
+  };
+
+  // Edit testimony
+  const startEditTestimony = (testimony) => {
+    setEditingTestimonyId(testimony.id);
+    setEditingTestimonyData({
+      title: testimony.title,
+      content: testimony.content,
+      prayerRequestId: testimony.prayerRequestId || '',
+    });
+  };
+
+  const cancelEditTestimony = () => {
+    setEditingTestimonyId(null);
+    setEditingTestimonyData({ title: '', content: '', prayerRequestId: '' });
+  };
+
+  const saveEditTestimony = async (testimonyId) => {
+    try {
+      await updateTestimony(testimonyId, editingTestimonyData);
+      setEditingTestimonyId(null);
       fetchData();
     } catch (error) {
-      alert('Error encouraging testimony');
+      console.error('Error updating testimony:', error);
+      alert('Failed to update testimony');
+    }
+  };
+
+  const deleteTestimonyFunc = async (testimonyId) => {
+    if (!window.confirm('Are you sure you want to delete this testimony? This cannot be undone.')) return;
+    try {
+      await deleteTestimony(testimonyId);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting testimony:', error);
+      alert('Failed to delete testimony');
     }
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffHours < 1) return 'Just now';
+    const diffMinutes = Math.floor((now - date) / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 1) return 'just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffHours < 48) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
   };
 
-  if (loading && !selectedRequest) {
-    return <div style={styles.loading}>Loading prayer wall...</div>;
-  }
-
   return (
-    <div style={styles.container}>
-      {selectedRequest ? (
-        // Single Prayer Request View
-        <div>
-          <button 
-            onClick={() => setSelectedRequest(null)}
-            style={styles.backButton}
+    <div className="min-h-screen bg-gradient-to-br from-primary-500 to-secondary-500 py-8 px-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center text-white mb-8">
+          <h1 className="text-4xl font-bold mb-2">🙏 Prayer Wall</h1>
+          <p className="text-lg opacity-90">Share your prayers and testimonies with the community</p>
+        </div>
+
+        {/* Info Banner - Guidance for users */}
+        <div className="bg-blue-100 border-l-4 border-blue-500 rounded-lg p-4 mb-6 shadow-md">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">💡</span>
+            <div>
+              <p className="text-sm text-blue-800 font-medium mb-1">How to use the Prayer Wall</p>
+              <p className="text-sm text-blue-700">
+                Prayer requests stay here where the community can pray for you. 
+                For events, donations, or announcements, please visit the 
+                <a href="/community" className="font-semibold underline ml-1 hover:text-blue-900">
+                  Community Board →
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8 bg-white/10 backdrop-blur-lg p-2 rounded-xl">
+          <button
+            onClick={() => setActiveTab('prayer')}
+            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${
+              activeTab === 'prayer'
+                ? 'bg-white text-primary-500 shadow-lg'
+                : 'text-white hover:bg-white/10'
+            }`}
           >
-            ← Back to Prayer Wall
+            🙏 Prayer Requests
           </button>
-          
-          <div style={styles.requestDetail}>
-            <div style={styles.requestHeader}>
-              <div>
-                <p style={styles.requestContent}>{selectedRequest.content}</p>
-                <div style={styles.requestMeta}>
-                  <span>
-                    {selectedRequest.isAnonymous ? 'Anonymous' : selectedRequest.author?.name}
-                  </span>
-                  <span>•</span>
-                  <span>{formatDate(selectedRequest.createdAt)}</span>
-                  <span>•</span>
-                  <span>📍 {selectedRequest.city || 'No location'}</span>
+          <button
+            onClick={() => setActiveTab('testimonies')}
+            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${
+              activeTab === 'testimonies'
+                ? 'bg-white text-primary-500 shadow-lg'
+                : 'text-white hover:bg-white/10'
+            }`}
+          >
+            ✨ Testimonies
+          </button>
+        </div>
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="text-center py-12 text-white">
+            <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+            <p>Loading...</p>
+          </div>
+        ) : (
+          <>
+            {/* Prayer Tab */}
+            {activeTab === 'prayer' && (
+              <div className="space-y-8">
+                {/* New Prayer Button */}
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowNewPrayerModal(true)}
+                    className="flex-1 bg-white text-primary-500 py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  >
+                    ✝️ Share a Prayer Request
+                  </button>
                 </div>
-              </div>
-              {/* Report button for prayer request */}
-              <ReportButton
-                contentType={CONTENT_TYPES.PRAYER_REQUEST}
-                contentId={selectedRequest.id}
-                authorId={selectedRequest.author?.id}
-                size="small"
-              />
-            </div>
 
-            <div style={styles.prayerStats}>
-              <div style={styles.statBox}>
-                <span style={styles.statNumber}>{selectedRequest.prayedCount}</span>
-                <span style={styles.statLabel}>prayers</span>
-              </div>
-            </div>
+                {/* Trending Prayers */}
+                {trendingPrayers.length > 0 && (
+                  <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-xl font-semibold text-primary-700 mb-4">🔥 Trending Prayers</h3>
+                    <div className="space-y-4">
+                      {trendingPrayers.map(prayer => (
+                        <div key={prayer.id} className="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                          {/* Header */}
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold">
+                                {prayer.isAnonymous ? '?' : prayer.author?.name?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-900">
+                                  {prayer.isAnonymous ? 'Anonymous' : prayer.author?.name || 'Unknown'}
+                                </span>
+                                <span className="text-sm text-gray-500 ml-2">{formatDate(prayer.createdAt)}</span>
+                              </div>
+                            </div>
+                            {prayer.authorId === user?.id && editingPrayerId !== prayer.id && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => startEditPrayer(prayer)}
+                                  className="text-gray-500 hover:text-primary-500 transition-colors"
+                                  title="Edit"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => deletePrayer(prayer.id)}
+                                  className="text-gray-500 hover:text-red-500 transition-colors"
+                                  title="Delete"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            )}
+                          </div>
 
-            <button
-              onClick={() => handlePray(selectedRequest.id)}
-              style={styles.prayButton}
-            >
-              🙏 Pray for This
-            </button>
+                          {/* Content */}
+                          {editingPrayerId === prayer.id ? (
+                            <div className="space-y-3">
+                              <textarea
+                                value={editingPrayerContent}
+                                onChange={(e) => setEditingPrayerContent(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                rows="4"
+                                maxLength="2000"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => saveEditPrayer(prayer.id)}
+                                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditPrayer}
+                                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-gray-700 mb-4">{prayer.content}</p>
+                          )}
 
-            {/* People who prayed */}
-            {selectedRequest.prayers?.length > 0 && (
-              <div style={styles.prayersList}>
-                <h4 style={styles.sectionTitle}>Recently prayed for this</h4>
-                <div style={styles.prayerAvatars}>
-                  {selectedRequest.prayers.map(prayer => (
-                    <div key={prayer.id} style={styles.prayerAvatar}>
-                      {prayer.member.name.charAt(0)}
+                          {/* Footer */}
+                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                            <button
+                              onClick={() => handlePray(prayer.id)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                                prayedSet.has(prayer.id)
+                                  ? 'bg-primary-100 text-primary-700'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-primary-50'
+                              }`}
+                            >
+                              <span>{prayedSet.has(prayer.id) ? '🙏' : '🤲'}</span>
+                              <span>{prayedSet.has(prayer.id) ? 'Prayed' : 'Pray'}</span>
+                            </button>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm text-gray-600">
+                                {prayer.prayedCount || 0} {(prayer.prayedCount || 0) === 1 ? 'prayer' : 'prayers'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                {/* All Prayer Requests */}
+                <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl">
+                  <h3 className="text-xl font-semibold text-primary-700 mb-4">All Prayer Requests</h3>
+                  <div className="space-y-4">
+                    {prayerRequests.length === 0 ? (
+                      <p className="text-center text-gray-500 py-8">No prayer requests yet. Be the first to share!</p>
+                    ) : (
+                      prayerRequests.map(prayer => (
+                        <div key={prayer.id} className="bg-white rounded-xl p-5 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                          {/* Header */}
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold">
+                                {prayer.isAnonymous ? '?' : prayer.author?.name?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-gray-900">
+                                  {prayer.isAnonymous ? 'Anonymous' : prayer.author?.name || 'Unknown'}
+                                </span>
+                                <span className="text-sm text-gray-500 ml-2">{formatDate(prayer.createdAt)}</span>
+                              </div>
+                            </div>
+                            {prayer.authorId === user?.id && editingPrayerId !== prayer.id && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => startEditPrayer(prayer)}
+                                  className="text-gray-500 hover:text-primary-500 transition-colors"
+                                  title="Edit"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => deletePrayer(prayer.id)}
+                                  className="text-gray-500 hover:text-red-500 transition-colors"
+                                  title="Delete"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          {editingPrayerId === prayer.id ? (
+                            <div className="space-y-3">
+                              <textarea
+                                value={editingPrayerContent}
+                                onChange={(e) => setEditingPrayerContent(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                rows="4"
+                                maxLength="2000"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => saveEditPrayer(prayer.id)}
+                                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditPrayer}
+                                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-gray-700 mb-4">{prayer.content}</p>
+                          )}
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                            <button
+                              onClick={() => handlePray(prayer.id)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                                prayedSet.has(prayer.id)
+                                  ? 'bg-primary-100 text-primary-700'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-primary-50'
+                              }`}
+                            >
+                              <span>{prayedSet.has(prayer.id) ? '🙏' : '🤲'}</span>
+                              <span>{prayedSet.has(prayer.id) ? 'Prayed' : 'Pray'}</span>
+                            </button>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm text-gray-600">
+                                {prayer.prayedCount || 0} {(prayer.prayedCount || 0) === 1 ? 'prayer' : 'prayers'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Link to testimony */}
-            <button
-              onClick={() => {
-                setNewTestimony({
-                  ...newTestimony,
-                  prayerRequestId: selectedRequest.id,
-                  title: `Prayer Answered: ${selectedRequest.content.substring(0, 50)}...`
-                });
-                setShowTestimonyForm(true);
-                setSelectedRequest(null);
-                setActiveTab('testimonies');
-              }}
-              style={styles.shareTestimonyButton}
-            >
-              ✨ Share how this prayer was answered
-            </button>
-          </div>
-        </div>
-      ) : (
-        // Prayer Wall Main View
-        <div>
-          <div style={styles.header}>
-            <h2 style={styles.title}>🙏 Prayer Wall</h2>
-            <button
-              onClick={() => setShowNewPrayerForm(!showNewPrayerForm)}
-              style={styles.newButton}
-            >
-              {showNewPrayerForm ? 'Cancel' : '+ Request Prayer'}
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div style={styles.tabs}>
-            <button
-              onClick={() => setActiveTab('prayer')}
-              style={{
-                ...styles.tab,
-                ...(activeTab === 'prayer' ? styles.activeTab : {}),
-              }}
-            >
-              Prayer Requests
-            </button>
-            <button
-              onClick={() => setActiveTab('testimonies')}
-              style={{
-                ...styles.tab,
-                ...(activeTab === 'testimonies' ? styles.activeTab : {}),
-              }}
-            >
-              ✨ Testimonies
-            </button>
-          </div>
-
-          {/* New Prayer Form */}
-          {showNewPrayerForm && (
-            <form onSubmit={handleCreatePrayer} style={styles.newForm}>
-              <h3 style={styles.formTitle}>Share a Prayer Request</h3>
-              <textarea
-                value={newPrayer.content}
-                onChange={(e) => setNewPrayer({...newPrayer, content: e.target.value})}
-                placeholder="What would you like prayer for?"
-                required
-                style={styles.textarea}
-                rows="4"
-              />
-              <div style={styles.formRow}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={newPrayer.isAnonymous}
-                    onChange={(e) => setNewPrayer({...newPrayer, isAnonymous: e.target.checked})}
-                  />
-                  Post anonymously
-                </label>
-                <button type="submit" style={styles.submitButton}>
-                  Share Prayer Request
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* New Testimony Form */}
-          {showTestimonyForm && (
-            <form onSubmit={handleCreateTestimony} style={styles.newForm}>
-              <h3 style={styles.formTitle}>✨ Share Your Testimony</h3>
-              <input
-                type="text"
-                value={newTestimony.title}
-                onChange={(e) => setNewTestimony({...newTestimony, title: e.target.value})}
-                placeholder="Title (e.g., God Answered My Prayer)"
-                required
-                style={styles.input}
-              />
-              <textarea
-                value={newTestimony.content}
-                onChange={(e) => setNewTestimony({...newTestimony, content: e.target.value})}
-                placeholder="Share what God has done..."
-                required
-                style={styles.textarea}
-                rows="5"
-              />
-              <div style={styles.formRow}>
-                <button type="submit" style={styles.submitButton}>
-                  Share Testimony
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowTestimonyForm(false)}
-                  style={styles.cancelButton}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Content based on active tab */}
-          {activeTab === 'prayer' ? (
-            <div>
-              {/* Trending Prayers */}
-              {trendingPrayers.length > 0 && (
-                <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>🔥 Trending Prayers</h3>
-                  <div style={styles.trendingList}>
-                    {trendingPrayers.map(request => (
-                      <div 
-                        key={request.id} 
-                        style={styles.trendingCard}
-                        onClick={() => handleViewRequest(request.id)}
-                      >
-                        <p style={styles.trendingContent}>
-                          {request.content.length > 100 
-                            ? request.content.substring(0, 100) + '...' 
-                            : request.content}
-                        </p>
-                        <div style={styles.trendingMeta}>
-                          <span>🙏 {request.prayedCount}</span>
-                          <span>{formatDate(request.createdAt)}</span>
-                        </div>
-                        {/* Report button for trending prayer */}
-                        <div style={styles.trendingReport}>
-                          <ReportButton
-                            contentType={CONTENT_TYPES.PRAYER_REQUEST}
-                            contentId={request.id}
-                            authorId={request.author?.id}
-                            size="small"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Testimonies Tab */}
+            {activeTab === 'testimonies' && (
+              <div className="space-y-8">
+                {/* New Testimony Button */}
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowTestimonyModal(true)}
+                    className="flex-1 bg-white text-primary-500 py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  >
+                    ✨ Share Testimony
+                  </button>
                 </div>
-              )}
 
-              {/* Recent Prayer Requests */}
-              <div style={styles.section}>
-                <h3 style={styles.sectionTitle}>Recent Prayer Requests</h3>
-                {prayerRequests.length === 0 ? (
-                  <p style={styles.emptyText}>No prayer requests yet. Be the first to share!</p>
+                {/* Testimonies List */}
+                {testimonies.length === 0 ? (
+                  <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-12 shadow-xl text-center">
+                    <p className="text-gray-500">No testimonies yet. Be the first to share how God has worked in your life!</p>
+                  </div>
                 ) : (
-                  <div style={styles.requestsList}>
-                    {prayerRequests.map(request => (
-                      <div 
-                        key={request.id} 
-                        style={styles.requestCard}
-                        onClick={() => handleViewRequest(request.id)}
-                      >
-                        <div style={styles.requestHeader}>
-                          <p style={styles.requestContent}>
-                            {request.content.length > 150 
-                              ? request.content.substring(0, 150) + '...' 
-                              : request.content}
-                          </p>
-                          {/* Report button for prayer request */}
-                          <ReportButton
-                            contentType={CONTENT_TYPES.PRAYER_REQUEST}
-                            contentId={request.id}
-                            authorId={request.author?.id}
-                            size="small"
-                          />
+                  <div className="space-y-4">
+                    {testimonies.map(testimony => (
+                      <div key={testimony.id} className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300">
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                              {testimony.author?.name?.charAt(0) || '?'}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-900 block">{testimony.author?.name}</span>
+                              <span className="text-sm text-gray-500">{formatDate(testimony.createdAt)}</span>
+                            </div>
+                          </div>
+                          {testimony.authorId === user?.id && editingTestimonyId !== testimony.id && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => startEditTestimony(testimony)}
+                                className="text-gray-500 hover:text-primary-500 transition-colors"
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => deleteTestimonyFunc(testimony.id)}
+                                className="text-gray-500 hover:text-red-500 transition-colors"
+                                title="Delete"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div style={styles.requestFooter}>
-                          <div style={styles.requestMeta}>
-                            <span>
-                              {request.isAnonymous ? 'Anonymous' : request.author?.name}
-                            </span>
-                            <span>•</span>
-                            <span>{formatDate(request.createdAt)}</span>
-                            {request.city && (
-                              <>
-                                <span>•</span>
-                                <span>📍 {request.city}</span>
-                              </>
+
+                        {/* Edit Mode */}
+                        {editingTestimonyId === testimony.id ? (
+                          <div className="space-y-4">
+                            <input
+                              type="text"
+                              value={editingTestimonyData.title}
+                              onChange={(e) => setEditingTestimonyData(prev => ({ ...prev, title: e.target.value }))}
+                              placeholder="Title"
+                              maxLength={100}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            />
+                            <textarea
+                              value={editingTestimonyData.content}
+                              onChange={(e) => setEditingTestimonyData(prev => ({ ...prev, content: e.target.value }))}
+                              rows="5"
+                              maxLength={5000}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            />
+                            <select
+                              value={editingTestimonyData.prayerRequestId}
+                              onChange={(e) => setEditingTestimonyData(prev => ({ ...prev, prayerRequestId: e.target.value }))}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            >
+                              <option value="">-- No linked prayer request --</option>
+                              {myPrayerRequests.map(req => (
+                                <option key={req.id} value={req.id}>
+                                  {req.content.substring(0, 50)}{req.content.length > 50 ? '...' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => saveEditTestimony(testimony.id)}
+                                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEditTestimony}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Title */}
+                            <h4 className="text-xl font-bold text-gray-900 mb-3">{testimony.title}</h4>
+                            {/* Content */}
+                            <p className="text-gray-700 mb-4 leading-relaxed">{testimony.content}</p>
+                            {/* Linked Prayer */}
+                            {testimony.prayerRequest && (
+                              <div className="bg-primary-50 border-l-4 border-primary-500 p-4 rounded-r-lg mb-4">
+                                <span className="text-xs font-semibold text-primary-700 uppercase tracking-wide">In response to:</span>
+                                <p className="text-gray-700 mt-1 italic">"{testimony.prayerRequest.content}"</p>
+                              </div>
                             )}
-                          </div>
-                          <div style={styles.prayerCount}>
-                            🙏 {request.prayedCount}
-                          </div>
+                          </>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                          <button
+                            onClick={() => handleEncourage(testimony.id)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                              encouragedSet.has(testimony.id)
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-700 hover:bg-red-50'
+                            }`}
+                          >
+                            <span className="text-xl">{encouragedSet.has(testimony.id) ? '❤️' : '🤍'}</span>
+                            <span>{encouragedSet.has(testimony.id) ? 'Encouraged' : 'Encourage'}</span>
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            {testimony.encouragedCount || 0} {(testimony.encouragedCount || 0) === 1 ? 'encouragement' : 'encouragements'}
+                          </span>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            // Testimonies Tab
-            <div>
-              <div style={styles.header}>
-                <h3 style={styles.sectionTitle}>✨ Testimonies</h3>
+            )}
+          </>
+        )}
+
+        {/* New Prayer Modal */}
+        {showNewPrayerModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowNewPrayerModal(false)}>
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 className="text-2xl font-bold text-gray-900">🙏 Share a Prayer Request</h3>
                 <button
-                  onClick={() => setShowTestimonyForm(true)}
-                  style={styles.newButton}
+                  onClick={() => setShowNewPrayerModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
                 >
-                  + Share Testimony
+                  ✕
                 </button>
               </div>
-              {testimonies.length === 0 ? (
-                <p style={styles.emptyText}>No testimonies yet. Share how God has worked in your life!</p>
-              ) : (
-                <div style={styles.testimoniesList}>
-                  {testimonies.map(testimony => (
-                    <div key={testimony.id} style={styles.testimonyCard}>
-                      <div style={styles.testimonyHeader}>
-                        <h4 style={styles.testimonyTitle}>{testimony.title}</h4>
-                        {/* Report button for testimony */}
-                        <ReportButton
-                          contentType={CONTENT_TYPES.TESTIMONY}
-                          contentId={testimony.id}
-                          authorId={testimony.author?.id}
-                          size="small"
-                        />
-                      </div>
-                      <p style={styles.testimonyContent}>{testimony.content}</p>
-                      <div style={styles.testimonyFooter}>
-                        <div style={styles.testimonyMeta}>
-                          <span>{testimony.author?.name}</span>
-                          <span>•</span>
-                          <span>{formatDate(testimony.createdAt)}</span>
-                        </div>
-                        <button
-                          onClick={() => handleEncourage(testimony.id)}
-                          style={styles.encourageButton}
-                        >
-                          ❤️ Encourage ({testimony.encouragedCount || 0})
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+
+              {/* Modal Body */}
+              <form onSubmit={handleCreatePrayer} className="p-6 space-y-4">
+                <textarea
+                  value={newPrayer.content}
+                  onChange={(e) => setNewPrayer({ ...newPrayer, content: e.target.value })}
+                  placeholder="What would you like prayer for? We're here for you..."
+                  required
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  rows="6"
+                  maxLength="2000"
+                />
+                <div className="text-right text-sm text-gray-500">{newPrayer.content.length}/2000</div>
+
+                <div className="flex items-center justify-between pt-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newPrayer.isAnonymous}
+                      onChange={(e) => setNewPrayer({ ...newPrayer, isAnonymous: e.target.checked })}
+                      className="w-5 h-5 text-primary-500 rounded focus:ring-2 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-700 font-medium">Post anonymously</span>
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPrayerModal(false)}
+                      className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+                    >
+                      Share Request
+                    </button>
+                  </div>
                 </div>
-              )}
+              </form>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* New Testimony Modal */}
+        {showTestimonyModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowTestimonyModal(false)}>
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+                <h3 className="text-2xl font-bold text-gray-900">✨ Share Your Testimony</h3>
+                <button
+                  onClick={() => setShowTestimonyModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleCreateTestimony} className="p-6 space-y-4">
+                <input
+                  type="text"
+                  value={newTestimony.title}
+                  onChange={(e) => setNewTestimony({ ...newTestimony, title: e.target.value })}
+                  placeholder="Title (e.g., God Healed My Mom)"
+                  required
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  maxLength="100"
+                />
+                <textarea
+                  value={newTestimony.content}
+                  onChange={(e) => setNewTestimony({ ...newTestimony, content: e.target.value })}
+                  placeholder="Share what God has done in your life..."
+                  required
+                  className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  rows="8"
+                  maxLength="5000"
+                />
+                <div className="text-right text-sm text-gray-500">{newTestimony.content.length}/5000</div>
+
+                {/* Dropdown to link a prayer request */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">Link to a Prayer Request (Optional)</label>
+                  <select
+                    value={newTestimony.prayerRequestId}
+                    onChange={(e) => setNewTestimony({ ...newTestimony, prayerRequestId: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={fetchingMyPrayerRequests}
+                  >
+                    <option value="">-- No linked prayer request --</option>
+                    {myPrayerRequests.map(req => (
+                      <option key={req.id} value={req.id}>
+                        {req.content.substring(0, 50)}{req.content.length > 50 ? '...' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {fetchingMyPrayerRequests && <small className="text-gray-500">Loading your prayer requests...</small>}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowTestimonyModal(false)}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+                  >
+                    Share Testimony
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: '900px',
-    margin: '0 auto',
-    padding: '20px',
-  },
-  loading: {
-    textAlign: 'center',
-    padding: '50px',
-    color: '#666',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  title: {
-    margin: 0,
-    color: '#333',
-  },
-  newButton: {
-    padding: '8px 16px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  tabs: {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '20px',
-  },
-  tab: {
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-  },
-  activeTab: {
-    backgroundColor: '#667eea',
-    color: 'white',
-  },
-  newForm: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '10px',
-    marginBottom: '20px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-  },
-  formTitle: {
-    margin: '0 0 15px 0',
-    color: '#333',
-  },
-  input: {
-    width: '100%',
-    padding: '10px',
-    marginBottom: '15px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px',
-    marginBottom: '15px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    fontFamily: 'inherit',
-  },
-  formRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    color: '#666',
-  },
-  submitButton: {
-    padding: '10px 20px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    padding: '10px 20px',
-    backgroundColor: '#6c757d',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  section: {
-    marginBottom: '30px',
-  },
-  sectionTitle: {
-    color: '#333',
-    marginBottom: '15px',
-  },
-  trendingList: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-    gap: '15px',
-  },
-  trendingCard: {
-    backgroundColor: '#f0f4ff',
-    padding: '15px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    position: 'relative',
-  },
-  trendingContent: {
-    margin: '0 0 10px 0',
-    color: '#333',
-  },
-  trendingMeta: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '12px',
-    color: '#666',
-  },
-  trendingReport: {
-    position: 'absolute',
-    top: '5px',
-    right: '5px',
-  },
-  requestsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-  },
-  requestCard: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  requestHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '10px',
-  },
-  requestContent: {
-    margin: '0 0 15px 0',
-    color: '#444',
-    lineHeight: '1.6',
-    flex: 1,
-  },
-  requestFooter: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  requestMeta: {
-    display: 'flex',
-    gap: '8px',
-    fontSize: '13px',
-    color: '#999',
-  },
-  prayerCount: {
-    fontSize: '14px',
-    color: '#667eea',
-  },
-  emptyText: {
-    textAlign: 'center',
-    padding: '40px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '10px',
-    color: '#999',
-  },
-  backButton: {
-    padding: '10px 20px',
-    marginBottom: '20px',
-    backgroundColor: '#f0f0f0',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  requestDetail: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-  },
-  prayerStats: {
-    marginBottom: '20px',
-  },
-  statBox: {
-    textAlign: 'center',
-    padding: '15px',
-    backgroundColor: '#f0f4ff',
-    borderRadius: '8px',
-  },
-  statNumber: {
-    display: 'block',
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#667eea',
-  },
-  statLabel: {
-    fontSize: '14px',
-    color: '#666',
-  },
-  prayButton: {
-    width: '100%',
-    padding: '15px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '18px',
-    cursor: 'pointer',
-    marginBottom: '20px',
-  },
-  shareTestimonyButton: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: 'transparent',
-    color: '#667eea',
-    border: '2px solid #667eea',
-    borderRadius: '8px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    marginTop: '20px',
-  },
-  prayersList: {
-    marginTop: '20px',
-  },
-  prayerAvatars: {
-    display: 'flex',
-    gap: '5px',
-    marginTop: '10px',
-  },
-  prayerAvatar: {
-    width: '30px',
-    height: '30px',
-    borderRadius: '50%',
-    backgroundColor: '#667eea',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '14px',
-    fontWeight: 'bold',
-  },
-  testimoniesList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-  },
-  testimonyCard: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  testimonyHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '10px',
-  },
-  testimonyTitle: {
-    margin: 0,
-    color: '#333',
-    flex: 1,
-  },
-  testimonyContent: {
-    color: '#666',
-    lineHeight: '1.6',
-    marginBottom: '15px',
-  },
-  testimonyFooter: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  testimonyMeta: {
-    display: 'flex',
-    gap: '8px',
-    fontSize: '13px',
-    color: '#999',
-  },
-  encourageButton: {
-    padding: '5px 10px',
-    backgroundColor: 'transparent',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '12px',
-  },
-};
 
 export default PrayerWall;

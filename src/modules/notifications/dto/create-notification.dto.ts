@@ -1,16 +1,27 @@
 // src/modules/notifications/dto/create-notification.dto.ts
+import { IsString, IsNotEmpty, IsOptional, IsObject, MaxLength } from 'class-validator';
+
 export class CreateNotificationDto {
-    type: string;
-    title: string;
-    message: string;
-    data?: Record<string, any>;
-    userId: string;
-  }
-  
-  // src/modules/notifications/dto/notification-query.dto.ts
-  export class NotificationQueryDto {
-    page?: number;
-    limit?: number;
-    unreadOnly?: boolean;
-  }
-  
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50, { message: 'Type cannot exceed 50 characters' })
+  type: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200, { message: 'Title cannot exceed 200 characters' })
+  title: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000, { message: 'Message cannot exceed 1000 characters' })
+  message: string;
+
+  @IsOptional()
+  @IsObject()
+  data?: Record<string, any>;
+
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
+}

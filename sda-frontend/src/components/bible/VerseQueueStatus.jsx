@@ -9,8 +9,8 @@ const VerseQueueStatus = () => {
     fetchQueueStatus();
   }, []);
 
-  if (loading) return <div>Loading queue...</div>;
-  if (error) return <div>Error loading queue</div>;
+  if (loading) return <div className="text-gray-500 text-center py-4">Loading queue...</div>;
+  if (error) return <div className="text-red-500 text-center py-4">Error loading queue</div>;
   if (!queueStatus) return null;
 
   const formatDate = (dateString) => {
@@ -24,99 +24,38 @@ const VerseQueueStatus = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <h4 style={styles.title}>📋 Verse Queue</h4>
-      <div style={styles.stats}>
-        <div style={styles.stat}>
-          <span style={styles.statValue}>{queueStatus.pending}</span>
-          <span style={styles.statLabel}>Pending</span>
+    <div className="bg-white rounded-xl shadow-md p-5">
+      <h4 className="text-lg font-semibold text-gray-800 mb-3">📋 Verse Queue</h4>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <div className="text-2xl font-bold text-primary-500">{queueStatus.pending}</div>
+          <div className="text-xs text-gray-500">Pending</div>
         </div>
-        <div style={styles.stat}>
-          <span style={styles.statValue}>{queueStatus.scheduled}</span>
-          <span style={styles.statLabel}>Scheduled</span>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <div className="text-2xl font-bold text-primary-500">{queueStatus.scheduled}</div>
+          <div className="text-xs text-gray-500">Scheduled</div>
         </div>
-        <div style={styles.stat}>
-          <span style={styles.statValue}>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <div className="text-2xl font-bold text-primary-500">
             {queueStatus.pending + queueStatus.scheduled}
-          </span>
-          <span style={styles.statLabel}>Total</span>
+          </div>
+          <div className="text-xs text-gray-500">Total</div>
         </div>
       </div>
 
-      <div style={styles.nextDate}>
+      <div className="p-3 bg-primary-50 rounded-lg text-sm mb-3">
         <strong>Next available:</strong> {formatDate(queueStatus.nextAvailableDate)}
       </div>
 
       {queueStatus.pending === 0 && queueStatus.scheduled === 0 ? (
-        <p style={styles.emptyMessage}>
-          ✨ Be the first to share a verse!
-        </p>
+        <p className="text-center text-green-600 text-sm mt-2">✨ Be the first to share a verse!</p>
       ) : (
-        <p style={styles.info}>
-          <a href="/my-submissions" style={styles.link}>View my submissions →</a>
+        <p className="text-center text-sm mt-2">
+          <a href="/my-submissions" className="text-primary-500 hover:underline">View my submissions →</a>
         </p>
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    backgroundColor: 'white',
-    borderRadius: '10px',
-    padding: '20px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    marginBottom: '20px',
-  },
-  title: {
-    margin: '0 0 15px 0',
-    color: '#333',
-    fontSize: '16px',
-  },
-  stats: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '10px',
-    marginBottom: '15px',
-  },
-  stat: {
-    textAlign: 'center',
-    padding: '10px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '5px',
-  },
-  statValue: {
-    display: 'block',
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#667eea',
-  },
-  statLabel: {
-    fontSize: '11px',
-    color: '#666',
-  },
-  nextDate: {
-    padding: '10px',
-    backgroundColor: '#f0f4ff',
-    borderRadius: '5px',
-    fontSize: '13px',
-    marginBottom: '10px',
-  },
-  emptyMessage: {
-    textAlign: 'center',
-    color: '#27ae60',
-    fontSize: '13px',
-    margin: '10px 0 0',
-  },
-  info: {
-    textAlign: 'center',
-    margin: '10px 0 0',
-  },
-  link: {
-    color: '#667eea',
-    textDecoration: 'none',
-    fontSize: '13px',
-  },
 };
 
 export default VerseQueueStatus;

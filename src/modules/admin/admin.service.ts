@@ -1,5 +1,5 @@
 // src/modules/admin/admin.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { UserQueryDto } from './dto/user-query.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
@@ -24,6 +24,10 @@ import { RateLimitDto } from '../security/dto/rate-limit.dto';
 import { BackupDto } from '../maintenance/dto/backup.dto';
 // ============ IMPORT NOTIFICATION SERVICE ============
 import { NotificationService, CreateNotificationDto } from '../notifications/notification.service';
+// ============ IMPORT FOR SESSION TERMINATION ============
+// 🔥 FIX: Remove the import or create the service
+// Option A: Delete this line if you don't have the service
+// import { UserSessionService } from '../auth/user-session.service';
 
 // Define types for better type safety
 interface BulkActionResult {
@@ -42,6 +46,8 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    // 🔥 FIX: Remove UserSessionService from constructor
+    // private userSessionService: UserSessionService,
   ) {}
 
   // ============ USER MANAGEMENT ============
@@ -76,7 +82,7 @@ export class AdminService {
           name: true,
           email: true,
           phone: true,
-          locationName: true, // Fixed: removed nested 'select'
+          locationName: true,
           isAdmin: true,
           isSuspended: true,
           suspendedUntil: true,
@@ -117,8 +123,7 @@ export class AdminService {
         bio: true,
         age: true,
         gender: true,
-        locationName: true, // Fixed: removed nested 'select'
-        // Removed: region, country, showLocation (not in schema)
+        locationName: true,
         isAdmin: true,
         isSuspended: true,
         suspendedUntil: true,
@@ -152,6 +157,11 @@ export class AdminService {
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    // ✅ Super admin accounts can never be suspended via API
+    if (user.isSuperAdmin) {
+      throw new ForbiddenException('Super admin accounts cannot be suspended');
     }
 
     const { suspend, until, reason } = dto;
@@ -218,6 +228,11 @@ export class AdminService {
       throw new BadRequestException('You cannot change your own admin status');
     }
 
+    // ✅ CRITICAL: Super admin status can NEVER be changed via API
+    if (user.isSuperAdmin) {
+      throw new ForbiddenException('Super admin status cannot be modified through the API');
+    }
+
     const updated = await this.prisma.member.update({
       where: { id: userId },
       data: {
@@ -266,6 +281,11 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
+    // ✅ Super admin passwords can never be reset via API
+    if (user.isSuperAdmin) {
+      throw new ForbiddenException('Super admin passwords cannot be reset through the API');
+    }
+
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -279,6 +299,12 @@ export class AdminService {
           ? `${user.adminNotes}\n\n[${new Date().toISOString()}] Admin ${adminId} reset user password.`
           : `[${new Date().toISOString()}] Admin ${adminId} reset user password.`,
       },
+    });
+
+    // 🔥 FIX: Terminate all active sessions after password change (direct Prisma call)
+    await this.prisma.userSession.updateMany({
+      where: { userId, isRevoked: false },
+      data: { isRevoked: true },
     });
 
     // Send notification to user
@@ -344,6 +370,11 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
     
+    // ✅ Super admin accounts can never be deleted via API
+    if (user.isSuperAdmin) {
+      throw new ForbiddenException('Super admin accounts cannot be deleted through the API');
+    }
+
     // Get user info before deletion
     const userName = user.name;
     const userEmail = user.email;
@@ -384,7 +415,7 @@ export class AdminService {
     };
   }
 
-  // ============ BULK USER ACTIONS WITH NOTIFICATIONS ============
+  // ============ BULK USER ACTIONS WITH TRANSACTION ============
   async bulkUserAction(adminId: string, dto: BulkUserActionDto) {
     const { action, userIds, reason, duration } = dto;
     
@@ -397,168 +428,195 @@ export class AdminService {
       throw new BadRequestException('You cannot perform actions on your own account');
     }
 
+    // ✅ Prevent bulk actions targeting any super admin
+    const superAdmins = await this.prisma.member.findMany({
+      where: { id: { in: userIds }, isSuperAdmin: true },
+      select: { id: true },
+    });
+    if (superAdmins.length > 0) {
+      throw new ForbiddenException('Bulk actions cannot target super admin accounts');
+    }
+
     const results: { success: BulkActionResult[]; failed: BulkActionResult[] } = {
       success: [],
       failed: []
     };
 
-    for (const userId of userIds) {
+    // Use transaction for bulk operations
+    await this.prisma.$transaction(async (tx) => {
+      for (const userId of userIds) {
+        try {
+          switch (action) {
+            case 'delete': {
+              const user = await tx.member.findUnique({
+                where: { id: userId }
+              });
+              
+              await tx.member.delete({
+                where: { id: userId }
+              });
+              results.success.push({ userId, action: 'deleted' });
+              break;
+            }
+
+            case 'suspend': {
+              const user = await tx.member.findUnique({
+                where: { id: userId }
+              });
+              
+              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} bulk suspended. Reason: ${reason || 'Not specified'}`;
+              
+              await tx.member.update({
+                where: { id: userId },
+                data: {
+                  isSuspended: true,
+                  suspensionReason: reason || 'Bulk suspension',
+                  suspendedUntil: duration === 'permanent' ? null : this.calculateSuspensionEnd(duration || '7'),
+                  adminNotes: user?.adminNotes 
+                    ? `${user.adminNotes}\n\n${adminNote}`
+                    : adminNote,
+                }
+              });
+              results.success.push({ userId, action: 'suspended' });
+              break;
+            }
+
+            case 'unsuspend': {
+              const user = await tx.member.findUnique({
+                where: { id: userId }
+              });
+              
+              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} bulk unsuspended.`;
+              
+              await tx.member.update({
+                where: { id: userId },
+                data: {
+                  isSuspended: false,
+                  suspensionReason: null,
+                  suspendedUntil: null,
+                  adminNotes: user?.adminNotes 
+                    ? `${user.adminNotes}\n\n${adminNote}`
+                    : adminNote,
+                }
+              });
+              results.success.push({ userId, action: 'unsuspended' });
+              break;
+            }
+
+            case 'makeAdmin': {
+              const user = await tx.member.findUnique({
+                where: { id: userId }
+              });
+              
+              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} granted admin privileges (bulk).`;
+              
+              await tx.member.update({
+                where: { id: userId },
+                data: {
+                  isAdmin: true,
+                  adminNotes: user?.adminNotes 
+                    ? `${user.adminNotes}\n\n${adminNote}`
+                    : adminNote,
+                }
+              });
+              results.success.push({ userId, action: 'made admin' });
+              break;
+            }
+
+            case 'removeAdmin': {
+              const user = await tx.member.findUnique({
+                where: { id: userId }
+              });
+              
+              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} removed admin privileges (bulk).`;
+              
+              await tx.member.update({
+                where: { id: userId },
+                data: {
+                  isAdmin: false,
+                  adminNotes: user?.adminNotes 
+                    ? `${user.adminNotes}\n\n${adminNote}`
+                    : adminNote,
+                }
+              });
+              results.success.push({ userId, action: 'removed admin' });
+              break;
+            }
+          }
+        } catch (error) {
+          results.failed.push({ 
+            userId, 
+            action: 'failed',
+            error: error.message 
+          });
+        }
+      }
+    });
+
+    // Send notifications after transaction (to keep transaction short)
+    for (const result of results.success) {
       try {
         switch (action) {
-          case 'delete': {
-            const user = await this.prisma.member.findUnique({
-              where: { id: userId }
-            });
-            
-            await this.prisma.member.delete({
-              where: { id: userId }
-            });
-            results.success.push({ userId, action: 'deleted' });
-            
-            // Notify other admins
+          case 'delete':
+            // Notify admins about deletion
             const admins = await this.prisma.member.findMany({
               where: { isAdmin: true, id: { not: adminId } },
               select: { id: true }
             });
-            
             for (const admin of admins) {
               await this.notificationService.create({
                 type: 'user_deleted',
                 title: 'User Account Deleted',
-                message: `User ${user?.name} has been deleted via bulk action`,
-                data: { userId, adminId, action: 'bulk_delete' },
+                message: `A user has been deleted via bulk action`,
+                data: { userId: result.userId, adminId, action: 'bulk_delete' },
                 userId: admin.id,
               });
             }
             break;
-          }
 
-          case 'suspend': {
-            const user = await this.prisma.member.findUnique({
-              where: { id: userId }
-            });
-            
-            const adminNote = `[${new Date().toISOString()}] Admin ${adminId} bulk suspended. Reason: ${reason || 'Not specified'}`;
-            
-            await this.prisma.member.update({
-              where: { id: userId },
-              data: {
-                isSuspended: true,
-                suspensionReason: reason || 'Bulk suspension',
-                suspendedUntil: duration === 'permanent' ? null : this.calculateSuspensionEnd(duration || '7'),
-                adminNotes: user?.adminNotes 
-                  ? `${user.adminNotes}\n\n${adminNote}`
-                  : adminNote,
-              }
-            });
-            results.success.push({ userId, action: 'suspended' });
-            
-            // Notify suspended user
+          case 'suspend':
             await this.notificationService.create({
               type: 'account_suspension',
               title: 'Account Suspended',
               message: `Your account has been suspended${reason ? `: ${reason}` : ''}${duration !== 'permanent' ? ` for ${duration} days` : ' permanently'}`,
               data: { action: 'suspended', reason, duration, adminId, bulk: true },
-              userId,
+              userId: result.userId,
             });
             break;
-          }
 
-          case 'unsuspend': {
-            const user = await this.prisma.member.findUnique({
-              where: { id: userId }
-            });
-            
-            const adminNote = `[${new Date().toISOString()}] Admin ${adminId} bulk unsuspended.`;
-            
-            await this.prisma.member.update({
-              where: { id: userId },
-              data: {
-                isSuspended: false,
-                suspensionReason: null,
-                suspendedUntil: null,
-                adminNotes: user?.adminNotes 
-                  ? `${user.adminNotes}\n\n${adminNote}`
-                  : adminNote,
-              }
-            });
-            results.success.push({ userId, action: 'unsuspended' });
-            
-            // Notify unsuspended user
+          case 'unsuspend':
             await this.notificationService.create({
               type: 'account_suspension',
               title: 'Account Unsuspended',
               message: 'Your account has been unsuspended',
               data: { action: 'unsuspended', adminId, bulk: true },
-              userId,
+              userId: result.userId,
             });
             break;
-          }
 
-          case 'makeAdmin': {
-            const user = await this.prisma.member.findUnique({
-              where: { id: userId }
-            });
-            
-            const adminNote = `[${new Date().toISOString()}] Admin ${adminId} granted admin privileges (bulk).`;
-            
-            await this.prisma.member.update({
-              where: { id: userId },
-              data: {
-                isAdmin: true,
-                adminNotes: user?.adminNotes 
-                  ? `${user.adminNotes}\n\n${adminNote}`
-                  : adminNote,
-              }
-            });
-            results.success.push({ userId, action: 'made admin' });
-            
-            // Notify new admin
+          case 'makeAdmin':
             await this.notificationService.create({
               type: 'admin_status_change',
               title: 'Admin Privileges Granted',
               message: 'You have been granted admin privileges',
               data: { isAdmin: true, updatedBy: adminId, bulk: true },
-              userId,
+              userId: result.userId,
             });
             break;
-          }
 
-          case 'removeAdmin': {
-            const user = await this.prisma.member.findUnique({
-              where: { id: userId }
-            });
-            
-            const adminNote = `[${new Date().toISOString()}] Admin ${adminId} removed admin privileges (bulk).`;
-            
-            await this.prisma.member.update({
-              where: { id: userId },
-              data: {
-                isAdmin: false,
-                adminNotes: user?.adminNotes 
-                  ? `${user.adminNotes}\n\n${adminNote}`
-                  : adminNote,
-              }
-            });
-            results.success.push({ userId, action: 'removed admin' });
-            
-            // Notify former admin
+          case 'removeAdmin':
             await this.notificationService.create({
               type: 'admin_status_change',
               title: 'Admin Privileges Removed',
               message: 'Your admin privileges have been removed',
               data: { isAdmin: false, updatedBy: adminId, bulk: true },
-              userId,
+              userId: result.userId,
             });
             break;
-          }
         }
       } catch (error) {
-        results.failed.push({ 
-          userId, 
-          action: 'failed',
-          error: error.message 
-        });
+        // Log error but don't fail the bulk operation
+        console.error(`Failed to send notification to ${result.userId}:`, error);
       }
     }
 
@@ -597,8 +655,7 @@ export class AdminService {
         name: true,
         email: true,
         phone: true,
-        locationName: true, // Fixed: removed nested 'select'
-        // Removed: region, country (not in schema)
+        locationName: true,
         age: true,
         gender: true,
         isAdmin: true,
@@ -643,10 +700,19 @@ export class AdminService {
   // ============ DASHBOARD STATISTICS ============
 
   async getDashboardStats() {
+    // Create separate date objects to avoid mutation
     const now = new Date();
-    const today = new Date(now.setHours(0, 0, 0, 0));
-    const thisWeek = new Date(now.setDate(now.getDate() - 7));
-    const thisMonth = new Date(now.setMonth(now.getMonth() - 1));
+    
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    
+    const thisWeek = new Date(now);
+    thisWeek.setDate(thisWeek.getDate() - 7);
+    thisWeek.setHours(0, 0, 0, 0);
+    
+    const thisMonth = new Date(now);
+    thisMonth.setMonth(thisMonth.getMonth() - 1);
+    thisMonth.setHours(0, 0, 0, 0);
 
     const [
       totalUsers,
@@ -842,292 +908,297 @@ export class AdminService {
     };
   }
 
-// ============ RESOLVE REPORT WITH NOTIFICATIONS ============
-async resolveReport(adminId: string, reportId: string, dto: ResolveReportDto) {
-  const { action, notes, notifyUser, suspensionDuration, warningMessage } = dto;
+  // ============ RESOLVE REPORT WITH NOTIFICATIONS ============
+  async resolveReport(adminId: string, reportId: string, dto: ResolveReportDto) {
+    const { action, notes, notifyUser, suspensionDuration, warningMessage } = dto;
 
-  const report = await this.prisma.report.findUnique({
-    where: { id: reportId },
-    include: {
-      reportedUser: true,
-    },
-  });
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      include: {
+        reportedUser: true,
+      },
+    });
 
-  if (!report) {
-    throw new NotFoundException('Report not found');
-  }
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
 
-  // Take action based on resolution
-  let actionTaken = '';
+    // Take action based on resolution
+    let actionTaken = '';
 
-  switch (action) {
-    case 'dismiss':
-      actionTaken = 'Report dismissed';
-      break;
+    switch (action) {
+      case 'dismiss':
+        actionTaken = 'Report dismissed';
+        break;
 
-    case 'warn_user':
-      if (report.reportedUserId) {
-        await this.sendWarningToUser(
-          adminId,
-          report.reportedUserId,
-          warningMessage || notes || 'You have received a warning regarding your content.'
-        );
-        actionTaken = 'User warned';
-        
-        // Notify user about warning
-        await this.notificationService.create({
-          type: 'moderation_warning',
-          title: 'Content Warning',
-          message: warningMessage || 'You have received a warning regarding your content. Please review the community guidelines.',
-          data: {
-            reportId,
-            warningMessage,
+      case 'warn_user':
+        if (report.reportedUserId) {
+          await this.sendWarningToUser(
             adminId,
-          },
-          userId: report.reportedUserId,
-        });
-      }
-      break;
+            report.reportedUserId,
+            warningMessage || notes || 'You have received a warning regarding your content.'
+          );
+          actionTaken = 'User warned';
+          
+          // Notify user about warning
+          await this.notificationService.create({
+            type: 'moderation_warning',
+            title: 'Content Warning',
+            message: warningMessage || 'You have received a warning regarding your content. Please review the community guidelines.',
+            data: {
+              reportId,
+              warningMessage,
+              adminId,
+            },
+            userId: report.reportedUserId,
+          });
+        }
+        break;
 
-    case 'suspend_user':
-      if (report.reportedUserId) {
-        await this.suspendUser(adminId, report.reportedUserId, {
-          suspend: true,
-          until: suspensionDuration === 'permanent' ? undefined : this.getSuspensionDate(suspensionDuration),
-          reason: notes || 'Suspended due to reported content',
-        });
-        actionTaken = 'User suspended';
-        // Note: suspendUser already sends notification
-      }
-      break;
+      case 'suspend_user':
+        if (report.reportedUserId) {
+          await this.suspendUser(adminId, report.reportedUserId, {
+            suspend: true,
+            until: suspensionDuration === 'permanent' ? undefined : this.getSuspensionDate(suspensionDuration),
+            reason: notes || 'Suspended due to reported content',
+          });
+          actionTaken = 'User suspended';
+          // Note: suspendUser already sends notification
+        }
+        break;
 
-    case 'remove_content':
-      await this.removeReportedContent(report.contentType, report.contentId);
-      actionTaken = 'Content removed';
-      
-      // Notify content author if not the reporter
-      if (report.reportedUserId && report.reportedUserId !== report.reportedById) {
-        await this.notificationService.create({
-          type: 'content_removed',
-          title: 'Your Content Has Been Removed',
-          message: `Your ${report.contentType} has been removed due to a report. Reason: ${notes || 'Violation of community guidelines'}`,
-          data: {
-            contentType: report.contentType,
-            contentId: report.contentId,
-            reportId,
-          },
-          userId: report.reportedUserId,
-        });
-      }
-      break;
+      case 'remove_content':
+        await this.removeReportedContent(report.contentType, report.contentId);
+        actionTaken = 'Content removed';
+        
+        // Notify content author if not the reporter
+        if (report.reportedUserId && report.reportedUserId !== report.reportedById) {
+          await this.notificationService.create({
+            type: 'content_removed',
+            title: 'Your Content Has Been Removed',
+            message: `Your ${report.contentType} has been removed due to a report. Reason: ${notes || 'Violation of community guidelines'}`,
+            data: {
+              contentType: report.contentType,
+              contentId: report.contentId,
+              reportId,
+            },
+            userId: report.reportedUserId,
+          });
+        }
+        break;
 
-    case 'ban_user':
-      if (report.reportedUserId) {
-        await this.deleteUser(adminId, report.reportedUserId);
-        actionTaken = 'User banned';
-        // Note: deleteUser sends notification to admins
-      }
-      break;
-  }
+      case 'ban_user':
+        if (report.reportedUserId) {
+          await this.deleteUser(adminId, report.reportedUserId);
+          actionTaken = 'User banned';
+          // Note: deleteUser sends notification to admins
+        }
+        break;
+    }
 
-  // Update the report
-  const updatedReport = await this.prisma.report.update({
-    where: { id: reportId },
-    data: {
+    // 🔥 FIX: Always set resolvedById (removed invalid 'assign' check)
+    const updateData: any = {
       status: action === 'dismiss' ? 'dismissed' : 'resolved',
-      resolvedById: adminId,
       resolvedAt: new Date(),
       resolution: action,
       adminNotes: notes,
-    },
-  });
+      resolvedById: adminId,  // Always set for resolution actions
+    };
 
-  // Log the moderation action
-  await this.prisma.moderationLog.create({
-    data: {
-      moderatorId: adminId,
-      action: action,
-      contentType: 'report',
-      contentId: reportId,
-      reason: notes,
-      details: JSON.stringify({ action, resolution: action }),
-      targetUserId: report.reportedUserId,
-    },
-  });
+    // Update the report
+    const updatedReport = await this.prisma.report.update({
+      where: { id: reportId },
+      data: updateData,
+    });
 
-  // Notify the reporter about resolution if requested
-  if (notifyUser && report.reportedById) {
-    await this.notificationService.create({
-      type: 'report_resolved',
-      title: 'Your Report Has Been Resolved',
-      message: `The report you filed has been resolved. Action taken: ${actionTaken}`,
+    // Log the moderation action
+    await this.prisma.moderationLog.create({
       data: {
-        reportId,
-        action,
-        resolution: actionTaken,
+        moderatorId: adminId,
+        action: action,
+        contentType: 'report',
+        contentId: reportId,
+        reason: notes,
+        details: JSON.stringify({ action, resolution: actionTaken }),
+        targetUserId: report.reportedUserId,
       },
-      userId: report.reportedById,
+    });
+
+    // Notify the reporter about resolution if requested
+    if (notifyUser && report.reportedById) {
+      await this.notificationService.create({
+        type: 'report_resolved',
+        title: 'Your Report Has Been Resolved',
+        message: `The report you filed has been resolved. Action taken: ${actionTaken}`,
+        data: {
+          reportId,
+          action,
+          resolution: actionTaken,
+        },
+        userId: report.reportedById,
+      });
+    }
+
+    return {
+      success: true,
+      message: `Report resolved successfully. ${actionTaken}`,
+      report: updatedReport,
+    };
+  }
+
+  // 🔥 FIX: Assign report without setting resolvedById
+  async assignReport(adminId: string, reportId: string, assigneeId: string) {
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    const adminNote = `[${new Date().toISOString()}] Assigned to admin ${assigneeId}`;
+    
+    const updatedReport = await this.prisma.report.update({
+      where: { id: reportId },
+      data: {
+        // Don't set resolvedById here - use adminNotes only for assignment
+        status: 'investigating',
+        adminNotes: report.adminNotes 
+          ? `${report.adminNotes}\n\n${adminNote}`
+          : adminNote,
+      },
+    });
+
+    // Notify the assigned admin
+    if (assigneeId !== adminId) {
+      await this.notificationService.create({
+        type: 'report_assigned',
+        title: 'Report Assigned to You',
+        message: `A report has been assigned to you for investigation.`,
+        data: {
+          reportId,
+          assignedBy: adminId,
+        },
+        userId: assigneeId,
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Report assigned successfully',
+      report: updatedReport,
+    };
+  }
+
+  async getReportsByUser(userId: string) {
+    const reports = await this.prisma.report.findMany({
+      where: {
+        OR: [
+          { reportedUserId: userId },
+          { reportedById: userId },
+        ],
+      },
+      include: {
+        reportedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        resolvedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      asReporter: reports.filter(r => r.reportedById === userId),
+      asReported: reports.filter(r => r.reportedUserId === userId),
+      total: reports.length,
+    };
+  }
+
+  // ============ HELPER METHODS FOR REPORTS ============
+
+  /**
+   * FETCHES reported content for viewing (used in getReportById)
+   */
+  private async getReportedContent(contentType: string, contentId: string): Promise<any> {
+    switch (contentType) {
+      case 'prayerRequest':
+        return this.prisma.prayerRequest.findUnique({ 
+          where: { id: contentId },
+          include: { author: { select: { id: true, name: true } } }
+        });
+      case 'testimony':
+        return this.prisma.testimony.findUnique({ 
+          where: { id: contentId },
+          include: { author: { select: { id: true, name: true } } }
+        });
+      case 'discussion':
+        return this.prisma.discussion.findUnique({
+          where: { id: contentId },
+          include: { 
+            author: { select: { id: true, name: true } },
+            group: { select: { id: true, name: true } }
+          }
+        });
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * DELETES reported content (used in resolveReport with 'remove_content' action)
+   */
+  private async removeReportedContent(contentType: string, contentId: string) {
+    switch (contentType) {
+      case 'prayerRequest':
+        await this.prisma.prayerRequest.delete({ where: { id: contentId } });
+        break;
+      case 'testimony':
+        await this.prisma.testimony.delete({ where: { id: contentId } });
+        break;
+      case 'discussion':
+        await this.prisma.discussion.delete({ where: { id: contentId } });
+        break;
+      default:
+        throw new NotFoundException(`Cannot remove content of type: ${contentType}`);
+    }
+  }
+
+  private async sendWarningToUser(adminId: string, userId: string, message: string) {
+    // Add admin note
+    const user = await this.prisma.member.findUnique({
+      where: { id: userId }
+    });
+
+    const warningNote = `[${new Date().toISOString()}] Admin ${adminId} warned user. Message: ${message}`;
+    
+    await this.prisma.member.update({
+      where: { id: userId },
+      data: {
+        adminNotes: user?.adminNotes 
+          ? `${user.adminNotes}\n\n${warningNote}`
+          : warningNote,
+      },
     });
   }
 
-  return {
-    success: true,
-    message: `Report resolved successfully. ${actionTaken}`,
-    report: updatedReport,
-  };
-}
-
-async assignReport(adminId: string, reportId: string, assigneeId: string) {
-  const report = await this.prisma.report.findUnique({
-    where: { id: reportId },
-  });
-
-  if (!report) {
-    throw new NotFoundException('Report not found');
+  private getSuspensionDate(duration?: string): string | undefined {
+    if (!duration || duration === 'permanent') return undefined;
+    
+    const days = parseInt(duration, 10);
+    if (isNaN(days)) return undefined;
+    
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return date.toISOString();
   }
-
-  const adminNote = `[${new Date().toISOString()}] Assigned to admin ${assigneeId}`;
-  
-  const updatedReport = await this.prisma.report.update({
-    where: { id: reportId },
-    data: {
-      resolvedById: assigneeId,
-      status: 'investigating',
-      adminNotes: report.adminNotes 
-        ? `${report.adminNotes}\n\n${adminNote}`
-        : adminNote,
-    },
-  });
-
-  // Notify the assigned admin
-  if (assigneeId !== adminId) {
-    await this.notificationService.create({
-      type: 'report_assigned',
-      title: 'Report Assigned to You',
-      message: `A report has been assigned to you for investigation.`,
-      data: {
-        reportId,
-        assignedBy: adminId,
-      },
-      userId: assigneeId,
-    });
-  }
-
-  return {
-    success: true,
-    message: 'Report assigned successfully',
-    report: updatedReport,
-  };
-}
-
-async getReportsByUser(userId: string) {
-  const reports = await this.prisma.report.findMany({
-    where: {
-      OR: [
-        { reportedUserId: userId },
-        { reportedById: userId },
-      ],
-    },
-    include: {
-      reportedBy: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      resolvedBy: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  return {
-    asReporter: reports.filter(r => r.reportedById === userId),
-    asReported: reports.filter(r => r.reportedUserId === userId),
-    total: reports.length,
-  };
-}
-
-// ============ HELPER METHODS FOR REPORTS ============
-
-/**
- * FETCHES reported content for viewing (used in getReportById)
- */
-private async getReportedContent(contentType: string, contentId: string): Promise<any> {
-  switch (contentType) {
-    case 'prayerRequest':
-      return this.prisma.prayerRequest.findUnique({ 
-        where: { id: contentId },
-        include: { author: { select: { id: true, name: true } } }
-      });
-    case 'testimony':
-      return this.prisma.testimony.findUnique({ 
-        where: { id: contentId },
-        include: { author: { select: { id: true, name: true } } }
-      });
-      case 'groupDiscussion':
-        case 'groupMessage':
-          return this.prisma.groupMessage.findUnique({
-        where: { id: contentId },
-        include: { author: { select: { id: true, name: true } } }
-      });
-    default:
-      return null;
-  }
-}
-
-/**
- * DELETES reported content (used in resolveReport with 'remove_content' action)
- */
-private async removeReportedContent(contentType: string, contentId: string) {
-  switch (contentType) {
-    case 'prayerRequest':
-      await this.prisma.prayerRequest.delete({ where: { id: contentId } });
-      break;
-    case 'testimony':
-      await this.prisma.testimony.delete({ where: { id: contentId } });
-      break;
-      case 'groupDiscussion':
-        case 'groupMessage':
-          await this.prisma.groupMessage.delete({ where: { id: contentId } });
-      break;
-    default:
-      throw new NotFoundException(`Cannot remove content of type: ${contentType}`);
-  }
-}
-
-private async sendWarningToUser(adminId: string, userId: string, message: string) {
-  // Add admin note
-  const user = await this.prisma.member.findUnique({
-    where: { id: userId }
-  });
-
-  const warningNote = `[${new Date().toISOString()}] Admin ${adminId} warned user. Message: ${message}`;
-  
-  await this.prisma.member.update({
-    where: { id: userId },
-    data: {
-      adminNotes: user?.adminNotes 
-        ? `${user.adminNotes}\n\n${warningNote}`
-        : warningNote,
-    },
-  });
-}
-
-private getSuspensionDate(duration?: string): string | undefined {
-  if (!duration || duration === 'permanent') return undefined;
-  
-  const days = parseInt(duration, 10);
-  if (isNaN(days)) return undefined;
-  
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString();
-}
 
   // ============ PHASE 4 - ANALYTICS METHODS ============
 
@@ -1182,7 +1253,7 @@ private getSuspensionDate(duration?: string): string | undefined {
       select: {
         age: true,
         gender: true,
-        locationName: true, // Fixed: removed nested 'select'
+        locationName: true,
       },
     });
 
@@ -1277,7 +1348,7 @@ private getSuspensionDate(duration?: string): string | undefined {
         prayers: topPrayers.map(p => ({
           id: p.id,
           content: p.content.substring(0, 100),
-          prayedCount: p._count?.prayers || 0, // Added optional chaining
+          prayedCount: p._count?.prayers || 0,
           createdAt: p.createdAt,
         })),
       },

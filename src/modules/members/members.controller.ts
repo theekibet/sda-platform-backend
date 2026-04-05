@@ -78,16 +78,20 @@ export class MembersController {
     };
   }
 
-  // ============ NEW: LOCATION ENDPOINTS ============
+  // ============ SIMPLIFIED LOCATION ENDPOINT (Auto-detect only) ============
   
   @Patch('profile/location')
   @HttpCode(HttpStatus.OK)
   async updateLocation(
     @CurrentUser() user: any,
-    @Body('locationName') locationName?: string,
-    @Body('locationPrivacy') locationPrivacy?: 'exact' | 'city' | 'country' | 'none',
+    @Body('locationName') locationName: string,
+    @Body('latitude') latitude?: number,
+    @Body('longitude') longitude?: number,
   ) {
-    return this.membersService.updateLocation(user.id, { locationName, locationPrivacy });
+    if (!locationName) {
+      throw new BadRequestException('Location name is required');
+    }
+    return this.membersService.updateLocation(user.id, { locationName, latitude, longitude });
   }
 
   // ============ BASIC MEMBER ENDPOINTS ============

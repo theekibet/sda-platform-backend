@@ -1,11 +1,15 @@
 // src/modules/announcements/dto/create-announcement.dto.ts
-import { IsString, IsOptional, IsIn, IsArray, IsBoolean, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsArray, IsBoolean, IsDateString, MaxLength, IsNotEmpty } from 'class-validator';
 
 export class CreateAnnouncementDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200, { message: 'Title cannot exceed 200 characters' })
   title: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000, { message: 'Content cannot exceed 10000 characters' })
   content: string;
 
   @IsOptional()

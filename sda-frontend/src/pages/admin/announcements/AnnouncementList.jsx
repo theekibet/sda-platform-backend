@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAnnouncements } from '../../../hooks/useAnnouncements'; 
 import AnnouncementForm from './AnnouncementForm';
-import { ANNOUNCEMENT_TYPES } from '../../../utils/constants';
+import { ANNOUNCEMENT_TYPES } from '../../../constants/constants';
 
 const AnnouncementList = () => {
   const {

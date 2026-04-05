@@ -1,5 +1,5 @@
 // src/modules/auth/auth.service.ts
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,8 @@ import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -59,13 +61,16 @@ export class AuthService {
         age: age,
         gender,
         isActive: true,
+        lastActiveAt: new Date(),
       },
     });
 
-    // Auto-join General Discussion group
-    await this.autoJoinGeneralGroup(user.id);
+    // Auto-join General Discussion group (fire and forget)
+    this.autoJoinGeneralGroup(user.id).catch(error => {
+      this.logger.error(`Failed to auto-join group for user ${user.id}: ${error.message}`);
+    });
   
-    // Generate JWT token
+    // Generate JWT token with minimal claims - we'll rely on DB for fresh data
     const token = this.generateToken(user);
   
     // Remove password from response
@@ -95,6 +100,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
   
+    // Check if user is suspended BEFORE allowing login
+    const now = new Date();
+    const isSuspended = user.isSuspended && (
+      !user.suspendedUntil || // Permanent suspension
+      user.suspendedUntil > now // Active temporary suspension
+    );
+
+    if (isSuspended) {
+      let suspensionMessage = 'Account suspended';
+      if (user.suspensionReason) {
+        suspensionMessage += `: ${user.suspensionReason}`;
+      }
+      if (user.suspendedUntil) {
+        suspensionMessage += ` until ${user.suspendedUntil.toLocaleDateString()}`;
+      }
+      
+      this.logger.warn(`Suspended user attempted login: ${user.id}`);
+      throw new UnauthorizedException(suspensionMessage);
+    }
+  
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
   
@@ -108,7 +133,7 @@ export class AuthService {
       data: { lastActiveAt: new Date() }
     });
   
-    // Generate token
+    // Generate token with minimal claims
     const token = this.generateToken(user);
   
     // Remove password from response
@@ -120,28 +145,109 @@ export class AuthService {
     };
   }
 
+  /**
+   * Generate JWT token with MINIMAL claims
+   * We only put the user ID in the token - everything else comes from DB on each request
+   * This ensures suspended users are blocked immediately and admin changes take effect instantly
+   */
   generateToken(user: any) {
     const payload = {
-      sub: user.id,
-      email: user.email,
-      name: user.name,
-      isAdmin: user.isAdmin || false,
+      sub: user.id, // Only the user ID - nothing else!
+      // No email, no name, no isAdmin - these will be fetched fresh from DB
+      iat: Math.floor(Date.now() / 1000), // Issued at time
     };
 
     return this.jwtService.sign(payload);
   }
 
+  /**
+   * Validate user for JWT strategy
+   * This is called by JwtStrategy.validate() to get fresh user data
+   */
   async validateUser(userId: string) {
     const user = await this.prisma.member.findUnique({
       where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        isAdmin: true,
+        isSuspended: true,
+        suspendedUntil: true,
+        suspensionReason: true,
+        locationName: true,
+        lastActiveAt: true,
+      },
     });
 
-    if (user) {
-      const { password, ...result } = user;
-      return result;
+    if (!user) {
+      return null;
     }
 
-    return null;
+    // Check suspension - if suspended, return null so JwtStrategy rejects
+    const now = new Date();
+    const isSuspended = user.isSuspended && (
+      !user.suspendedUntil ||
+      user.suspendedUntil > now
+    );
+
+    if (isSuspended) {
+      this.logger.warn(`Suspended user attempted access: ${userId}`);
+      return null;
+    }
+
+    return user;
+  }
+
+  /**
+   * Refresh token - generate a new token for a user
+   * Useful when you want to extend a session without re-login
+   */
+  async refreshToken(userId: string) {
+    const user = await this.prisma.member.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        isSuspended: true,
+        suspendedUntil: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Check suspension
+    const now = new Date();
+    const isSuspended = user.isSuspended && (
+      !user.suspendedUntil ||
+      user.suspendedUntil > now
+    );
+
+    if (isSuspended) {
+      throw new UnauthorizedException('Account suspended');
+    }
+
+    // Generate new token
+    const token = this.generateToken(user);
+
+    return { token };
+  }
+
+  /**
+   * Logout - invalidate token on client side
+   * Since we use stateless JWT, we just return success
+   * Client should discard the token
+   */
+  async logout(userId: string) {
+    // Optionally record logout time
+    await this.prisma.member.update({
+      where: { id: userId },
+      data: { lastActiveAt: new Date() },
+    });
+
+    return { success: true, message: 'Logged out successfully' };
   }
 
   private async autoJoinGeneralGroup(userId: string) {
@@ -161,7 +267,6 @@ export class AuthService {
           data: {
             name: 'General Discussion',
             description: 'Open conversations about faith, life, and everything. This is our community hub!',
-            category: 'GENERAL',
             isPrivate: false,
             requireApproval: false,
             isDefault: true,
@@ -169,7 +274,7 @@ export class AuthService {
             createdById: admin?.id || userId, // Use admin if exists, otherwise the new user
           },
         });
-        console.log('✅ Created General Discussion group');
+        this.logger.log('✅ Created General Discussion group');
       }
 
       // Check if already a member
@@ -199,10 +304,11 @@ export class AuthService {
           data: { memberCount: { increment: 1 } },
         });
 
-        console.log(`✅ User ${userId} auto-joined General Discussion group`);
+        this.logger.log(`✅ User ${userId} auto-joined General Discussion group`);
       }
     } catch (error) {
-      console.error('❌ Failed to auto-join General Discussion group:', error);
+      this.logger.error(`❌ Failed to auto-join General Discussion group: ${error.message}`);
+      // Don't throw - this is a background operation
     }
   }
 }

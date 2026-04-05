@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getContentModerationQueue, moderateContent } from '../../../services/api';
-import ModerationActionModal from './ModerationActionModal';
-import { MODERATION_ACTIONS, CONTENT_TYPES } from '../../../utils/constants';
+import ModerationActionModal from "./ModerationActionModal";
+import { MODERATION_ACTIONS, CONTENT_TYPES } from '../../../constants/constants';
 
 const ModerationQueue = () => {
   const { user } = useAuth();
@@ -59,20 +59,38 @@ const ModerationQueue = () => {
     setShowActionModal(true);
   };
 
-  const handleActionComplete = async (action, reason) => {
+  const handleActionComplete = async (action, actionData) => {
     if (!selectedItem) return;
     
     try {
       await moderateContent(selectedItem.id, {
         action,
-        reason,
+        reason: actionData.reason,
         contentType: selectedItem.contentType,
+        notifyUser: actionData.notifyUser,
+        suspensionDuration: actionData.suspensionDuration,
+        warningMessage: actionData.warningMessage,
+        postStatus: actionData.postStatus,
       });
       
       // Remove item from queue or update status
       setItems(prev => prev.filter(item => item.id !== selectedItem.id));
       setShowActionModal(false);
       setSelectedItem(null);
+      
+      // Show success message
+      const actionMessages = {
+        approve: 'Content approved successfully',
+        remove: 'Content removed successfully',
+        warn: 'Warning sent to user',
+        flag: 'Content flagged for review',
+        dismiss: 'Report dismissed',
+        pin: 'Post pinned successfully',
+        archive: 'Post archived successfully',
+        feature: 'Post featured successfully',
+        mark_spam: 'Content marked as spam',
+      };
+      alert(actionMessages[action] || 'Action completed successfully');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to moderate content');
     }
@@ -96,6 +114,12 @@ const ModerationQueue = () => {
       case CONTENT_TYPES.TESTIMONY: return 'Testimony';
       case CONTENT_TYPES.GROUP_DISCUSSION: return 'Group Discussion';
       case CONTENT_TYPES.USER: return 'User Profile';
+      case 'communityPost': return 'Community Post';
+      case 'event': return 'Event';
+      case 'donation': return 'Donation Post';
+      case 'support': return 'Support Request';
+      case 'announcement': return 'Announcement';
+      case 'general': return 'General Post';
       default: return type;
     }
   };
@@ -139,6 +163,9 @@ const ModerationQueue = () => {
           <span style={styles.stat}>
             <strong>{pagination.total}</strong> items pending
           </span>
+          <span style={styles.stat}>
+            🔥 <strong>{items.filter(i => i.priority === 'high' || i.priority === 'critical').length}</strong> high priority
+          </span>
         </div>
       </div>
 
@@ -156,6 +183,10 @@ const ModerationQueue = () => {
           <option value={CONTENT_TYPES.TESTIMONY}>Testimonies</option>
           <option value={CONTENT_TYPES.GROUP_DISCUSSION}>Group Discussions</option>
           <option value={CONTENT_TYPES.USER}>User Profiles</option>
+          <option value="communityPost">Community Posts</option>
+          <option value="event">Events</option>
+          <option value="donation">Donations</option>
+          <option value="announcement">Announcements</option>
         </select>
 
         <select
@@ -168,6 +199,17 @@ const ModerationQueue = () => {
           <option value="high">High</option>
           <option value="medium">Medium</option>
           <option value="low">Low</option>
+        </select>
+
+        <select
+          value={filters.status}
+          onChange={(e) => handleFilterChange('status', e.target.value)}
+          style={styles.filterSelect}
+        >
+          <option value="pending">Pending</option>
+          <option value="investigating">Investigating</option>
+          <option value="resolved">Resolved</option>
+          <option value="dismissed">Dismissed</option>
         </select>
 
         <form onSubmit={handleSearch} style={styles.searchForm}>
@@ -215,6 +257,11 @@ const ModerationQueue = () => {
                     <span style={styles.typeBadge}>
                       {getContentTypeLabel(item.contentType)}
                     </span>
+                    {item.type && (
+                      <span style={styles.subTypeBadge}>
+                        {item.type}
+                      </span>
+                    )}
                     <span style={styles.reportCount}>
                       🚩 {item.reportCount || 1} report{item.reportCount !== 1 ? 's' : ''}
                     </span>
@@ -229,9 +276,10 @@ const ModerationQueue = () => {
                   </div>
                 )}
 
-                {/* Content Snippet */}
+                {/* Content Preview */}
                 <div style={styles.contentSnippet}>
-                  {item.contentSnippet || item.description || 'No content preview available'}
+                  <strong>{item.title || 'Untitled'}</strong>
+                  <p>{item.contentSnippet || item.description || 'No content preview available'}</p>
                 </div>
 
                 {/* Reason */}
@@ -241,10 +289,25 @@ const ModerationQueue = () => {
                   </div>
                 )}
 
+                {/* Author Info (for community posts) */}
+                {item.author && (
+                  <div style={styles.authorInfo}>
+                    <span>👤 Author: {item.author.name}</span>
+                    {item.author.locationName && (
+                      <span>📍 {item.author.locationName.split(',')[0]}</span>
+                    )}
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div style={styles.itemActions}>
                   <button
-                    onClick={() => window.open(`/${item.contentType}/${item.contentId}`, '_blank')}
+                    onClick={() => {
+                      const url = item.contentType === 'communityPost' 
+                        ? `/community/post/${item.contentId}`
+                        : `/${item.contentType}/${item.contentId}`;
+                      window.open(url, '_blank');
+                    }}
                     style={styles.viewButton}
                   >
                     👁️ View
@@ -328,6 +391,8 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '20px',
+    flexWrap: 'wrap',
+    gap: '10px',
   },
   title: {
     margin: 0,
@@ -357,6 +422,7 @@ const styles = {
     border: '1px solid #ddd',
     fontSize: '14px',
     minWidth: '150px',
+    backgroundColor: 'white',
   },
   searchForm: {
     display: 'flex',
@@ -441,11 +507,14 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '10px',
+    flexWrap: 'wrap',
+    gap: '8px',
   },
   itemType: {
     display: 'flex',
     gap: '10px',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   typeBadge: {
     padding: '4px 8px',
@@ -453,6 +522,14 @@ const styles = {
     color: 'white',
     borderRadius: '4px',
     fontSize: '12px',
+    fontWeight: '500',
+  },
+  subTypeBadge: {
+    padding: '4px 8px',
+    backgroundColor: '#9b59b6',
+    color: 'white',
+    borderRadius: '4px',
+    fontSize: '11px',
     fontWeight: '500',
   },
   reportCount: {
@@ -480,7 +557,15 @@ const styles = {
   reason: {
     fontSize: '13px',
     color: '#666',
+    marginBottom: '10px',
+  },
+  authorInfo: {
+    fontSize: '12px',
+    color: '#888',
     marginBottom: '15px',
+    display: 'flex',
+    gap: '16px',
+    flexWrap: 'wrap',
   },
   itemActions: {
     display: 'flex',

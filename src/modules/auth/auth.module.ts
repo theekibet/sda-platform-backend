@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { PrismaService } from '../../prisma.service';
 import { JwtStrategy } from './jwt.strategy';
 import { EmailModule } from '../email/email.module';
+import { PasswordResetService } from './password-reset.service';
 
 @Module({
   imports: [
@@ -37,7 +38,12 @@ import { EmailModule } from '../email/email.module';
     EmailModule,
   ],
   controllers: [AuthController],  
-  providers: [AuthService, PrismaService, JwtStrategy],  
+  providers: [
+    AuthService, 
+    PrismaService, 
+    JwtStrategy,
+    PasswordResetService, // ✅ Added PasswordResetService to providers
+  ],  
   exports: [AuthService],  
 })
 export class AuthModule {}

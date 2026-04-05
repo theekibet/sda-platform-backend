@@ -2,311 +2,335 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import InteractiveVerseCard from '../../components/bible/InteractiveVerseCard';
+import PostCard from '../../components/community/PostCard';
+import DiscussionCard from '../../components/discussions/DiscussionCard';
+import { communityService } from '../../services/communityService';
+import { discussionsService } from '../../services/discussionsService';
+import API from '../../services/api';
 
 function Bookmarks() {
   const { user } = useAuth();
   const [bookmarks, setBookmarks] = useState([]);
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'verses', 'posts', 'discussions'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchBookmarks();
+    fetchAllBookmarks();
   }, []);
 
-  const fetchBookmarks = async () => {
+  const fetchAllBookmarks = async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/bible/verse/bookmarks', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setBookmarks(data.bookmarks || []);
-      } else {
-        setError('Failed to load bookmarks');
+      // Fetch verse bookmarks
+      const versesResponse = await API.get('/bible/verse/bookmarks');
+      const versesData = versesResponse.data;
+
+      // Fetch community post bookmarks
+      const postsResponse = await communityService.getBookmarks();
+
+      // Fetch discussion bookmarks
+      let discussionsData = { discussions: [] };
+      try {
+        const discussionsResponse = await discussionsService.getUserBookmarks(1, 100);
+        discussionsData = discussionsResponse.data || { discussions: [] };
+      } catch (err) {
+        console.error('Error fetching discussion bookmarks:', err);
       }
+
+      const combinedBookmarks = [
+        ...(versesData.bookmarks || []).map(b => ({
+          ...b,
+          type: 'verse',
+          data: b.verse || b,
+        })),
+        ...(postsResponse.data || []).map(p => ({
+          ...p,
+          type: 'post',
+          data: p.post || p,
+        })),
+        ...(discussionsData.discussions || []).map(d => ({
+          id: d.id,
+          type: 'discussion',
+          data: d,
+          createdAt: d.createdAt,
+        })),
+      ];
+
+      combinedBookmarks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setBookmarks(combinedBookmarks);
     } catch (err) {
+      console.error('Error fetching bookmarks:', err);
       setError('Failed to load bookmarks');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // This will be called when a bookmark is removed via the InteractiveVerseCard
-  const handleBookmarkRemoved = (verseId) => {
-    // Remove from local state immediately for better UX
-    setBookmarks(prev => prev.filter(b => {
-      const bookmarkVerseId = b.verse?.id || b.id;
-      return bookmarkVerseId !== verseId;
-    }));
+  const handleBookmarkRemoved = (bookmarkId, type) => {
+    setBookmarks(prev => prev.filter(b => !(b.id === bookmarkId && b.type === type)));
+  };
+
+  const handleDiscussionBookmarkRemoved = (discussionId) => {
+    setBookmarks(prev => prev.filter(b => !(b.type === 'discussion' && b.data.id === discussionId)));
+  };
+
+  const filteredBookmarks = () => {
+    if (activeTab === 'verses') {
+      return bookmarks.filter(b => b.type === 'verse');
+    }
+    if (activeTab === 'posts') {
+      return bookmarks.filter(b => b.type === 'post');
+    }
+    if (activeTab === 'discussions') {
+      return bookmarks.filter(b => b.type === 'discussion');
+    }
+    return bookmarks;
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
+    if (diffMinutes < 2880) return 'Yesterday';
+    return date.toLocaleDateString();
   };
 
   if (loading) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingSpinner}></div>
-        <p style={styles.loadingText}>Loading your bookmarks...</p>
+      <div className="flex flex-col items-center justify-center py-20 px-5 text-gray-600">
+        <div className="w-12 h-12 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin mb-5"></div>
+        <p className="text-base">Loading your bookmarks...</p>
       </div>
     );
   }
 
+  const displayBookmarks = filteredBookmarks();
+
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>🔖 My Bookmarks</h2>
-        <p style={styles.subtitle}>
-          {bookmarks.length} {bookmarks.length === 1 ? 'verse' : 'verses'} saved
+    <div className="max-w-3xl mx-auto p-5 pb-16">
+      {/* Header */}
+      <div className="mb-5 border-b-2 border-primary-500 pb-4">
+        <h2 className="text-3xl font-bold text-gray-800 mb-2 tracking-tight">
+          🔖 My Bookmarks
+        </h2>
+        <p className="text-gray-500 text-base m-0">
+          {bookmarks.length} {bookmarks.length === 1 ? 'item' : 'items'} saved
         </p>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2.5 mb-6 border-b border-gray-200 pb-2.5 flex-wrap">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-500 hover:text-primary-500'
+          }`}
+        >
+          All ({bookmarks.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('verses')}
+          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+            activeTab === 'verses'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-500 hover:text-primary-500'
+          }`}
+        >
+          📖 Verses ({bookmarks.filter(b => b.type === 'verse').length})
+        </button>
+        <button
+          onClick={() => setActiveTab('posts')}
+          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+            activeTab === 'posts'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-500 hover:text-primary-500'
+          }`}
+        >
+          📢 Community Posts ({bookmarks.filter(b => b.type === 'post').length})
+        </button>
+        <button
+          onClick={() => setActiveTab('discussions')}
+          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+            activeTab === 'discussions'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-500 hover:text-primary-500'
+          }`}
+        >
+          💬 Discussions ({bookmarks.filter(b => b.type === 'discussion').length})
+        </button>
+      </div>
+
+      {/* Error Message */}
       {error && (
-        <div style={styles.error}>
-          <span style={styles.errorIcon}>⚠️</span>
+        <div className="flex items-center gap-2.5 p-4 bg-red-50 text-red-700 rounded-lg mb-6 text-sm">
+          <span className="text-xl">⚠️</span>
           {error}
         </div>
       )}
 
-      {bookmarks.length === 0 ? (
-        <div style={styles.emptyState}>
-          <div style={styles.emptyIcon}>📖</div>
-          <h3 style={styles.emptyTitle}>No Bookmarks Yet</h3>
-          <p style={styles.emptyText}>
-            Start building your collection of meaningful verses! When you bookmark verses 
-            while reading, they'll appear here for easy access.
+      {/* Empty State */}
+      {displayBookmarks.length === 0 ? (
+        <div className="text-center py-20 px-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+          <div className="text-6xl mb-5 opacity-80">📖</div>
+          <h3 className="text-2xl font-semibold text-gray-800 mb-3">No Bookmarks Yet</h3>
+          <p className="text-gray-500 text-base max-w-md mx-auto mb-8 leading-relaxed">
+            {activeTab === 'verses'
+              ? "You haven't saved any Bible verses yet. When you bookmark verses while reading, they'll appear here."
+              : activeTab === 'posts'
+              ? "You haven't saved any community posts yet. Click the bookmark icon on any post to save it here."
+              : activeTab === 'discussions'
+              ? "You haven't saved any discussions yet. Click the bookmark icon on any discussion to save it here."
+              : "Start building your collection! Bookmark Bible verses, community posts, and discussions you want to remember."}
           </p>
-          <div style={styles.emptyActions}>
-            <button 
-              onClick={() => window.location.href = '/bible/verse-of-day'}
-              style={styles.primaryButton}
+          <div className="flex gap-4 justify-center flex-wrap">
+            <button
+              onClick={() => (window.location.href = '/bible/verse-of-day')}
+              className="px-7 py-3.5 bg-primary-500 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
             >
               ✨ Today's Verse
             </button>
-            <button 
-              onClick={() => window.location.href = '/bible/reader'}
-              style={styles.secondaryButton}
+            <button
+              onClick={() => (window.location.href = '/community')}
+              className="px-7 py-3.5 bg-white text-primary-500 font-semibold rounded-lg border-2 border-primary-500 hover:bg-primary-50 transition-all"
             >
-              📖 Browse Bible
+              📢 Browse Community
+            </button>
+            <button
+              onClick={() => (window.location.href = '/discussions')}
+              className="px-7 py-3.5 bg-white text-primary-500 font-semibold rounded-lg border-2 border-primary-500 hover:bg-primary-50 transition-all"
+            >
+              💬 Browse Discussions
             </button>
           </div>
         </div>
       ) : (
-        <div style={styles.bookmarksList}>
-          {bookmarks.map(bookmark => {
-            // Extract verse data - handle different possible structures
-            const verseData = bookmark.verse || bookmark;
-            const verseId = verseData?.id;
-            const bookmarkDate = bookmark.createdAt;
-
-            return (
-              <div key={bookmark.id} style={styles.bookmarkWrapper}>
-                {/* Show when this was bookmarked */}
-                <div style={styles.bookmarkMeta}>
-                  <span style={styles.bookmarkDate}>
-                    📅 Saved {new Date(bookmarkDate).toLocaleDateString('en-US', {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </span>
+        <div className="space-y-6">
+          {displayBookmarks.map(bookmark => {
+            if (bookmark.type === 'verse') {
+              const verseData = bookmark.data;
+              return (
+                <div key={`verse-${bookmark.id}`} className="relative">
+                  <div className="flex justify-between items-center mb-2.5 pl-1 flex-wrap gap-2">
+                    <span className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+                      📅 Saved{' '}
+                      {new Date(bookmark.createdAt).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full font-medium">
+                      📖 Bible Verse
+                    </span>
+                  </div>
+                  <InteractiveVerseCard
+                    verse={verseData}
+                    showReadButton={true}
+                    showSharedBy={false}
+                    onBookmarkChange={() => handleBookmarkRemoved(bookmark.id, 'verse')}
+                  />
                 </div>
-
-                {/* Use InteractiveVerseCard for full social features */}
-                <InteractiveVerseCard 
-                  verse={verseData}
-                  showReadButton={true}
-                  showSharedBy={false} // Don't show "shared by" in bookmarks
-                  onBookmarkChange={() => handleBookmarkRemoved(verseId)}
-                />
-              </div>
-            );
+              );
+            } else if (bookmark.type === 'post') {
+              const postData = bookmark.data;
+              return (
+                <div key={`post-${bookmark.id}`} className="relative">
+                  <div className="flex justify-between items-center mb-2.5 pl-1 flex-wrap gap-2">
+                    <span className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+                      📅 Saved{' '}
+                      {new Date(bookmark.createdAt).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full font-medium">
+                      📢 Community Post
+                    </span>
+                  </div>
+                  <PostCard
+                    post={postData}
+                    currentUser={user}
+                    onPostDeleted={() => handleBookmarkRemoved(bookmark.id, 'post')}
+                    onPostUpdated={updated => {
+                      setBookmarks(prev =>
+                        prev.map(b =>
+                          b.id === bookmark.id && b.type === 'post'
+                            ? { ...b, data: updated }
+                            : b
+                        )
+                      );
+                    }}
+                  />
+                </div>
+              );
+            } else {
+              // Discussion
+              const discussionData = bookmark.data;
+              return (
+                <div key={`discussion-${discussionData.id}`} className="relative">
+                  <div className="flex justify-between items-center mb-2.5 pl-1 flex-wrap gap-2">
+                    <span className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
+                      📅 Saved{' '}
+                      {new Date(bookmark.createdAt).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 bg-primary-100 text-primary-600 rounded-full font-medium">
+                      💬 Discussion
+                    </span>
+                  </div>
+                  <DiscussionCard
+                    discussion={discussionData}
+                    formatTimeAgo={formatTimeAgo}
+                    isBookmarked={true}
+                    onBookmarkChange={(discussionId, newBookmarked) => {
+                      if (!newBookmarked) {
+                        handleDiscussionBookmarkRemoved(discussionId);
+                      }
+                    }}
+                  />
+                </div>
+              );
+            }
           })}
         </div>
       )}
 
-      {/* Helpful Tips Section */}
+      {/* Tips Section */}
       {bookmarks.length > 0 && (
-        <div style={styles.tipsSection}>
-          <h3 style={styles.tipsTitle}>💡 Tips</h3>
-          <ul style={styles.tipsList}>
-            <li>Click the 🔖 bookmark icon on any verse card to remove it from your collection</li>
-            <li>Use the 💬 comment section to add your personal reflections</li>
-            <li>Click 📖 Read to see the verse in its full chapter context</li>
-            <li>Share meaningful verses with the community using the ❤️ like button</li>
+        <div className="mt-12 p-6 bg-primary-50 rounded-xl border border-primary-100">
+          <h3 className="text-primary-600 text-lg font-semibold mb-4 flex items-center gap-2">
+            💡 Tips
+          </h3>
+          <ul className="list-disc pl-6 text-gray-600 space-y-1">
+            <li>
+              Click the 🔖 bookmark icon on any verse, post, or discussion to remove it from your collection
+            </li>
+            <li>
+              Use the 💬 comment section on verses to add your personal reflections
+            </li>
+            <li>
+              Share meaningful content with the community using the ❤️ like button
+            </li>
+            <li>
+              Use the tabs above to filter between Bible verses, community posts, and discussions
+            </li>
           </ul>
         </div>
       )}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '20px',
-    paddingBottom: '60px',
-  },
-  header: {
-    marginBottom: '30px',
-    borderBottom: '2px solid #667eea',
-    paddingBottom: '15px',
-  },
-  title: {
-    color: '#333',
-    fontSize: '32px',
-    fontWeight: '700',
-    margin: '0 0 8px 0',
-    letterSpacing: '-0.5px',
-  },
-  subtitle: {
-    color: '#666',
-    fontSize: '16px',
-    margin: 0,
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '80px 20px',
-    color: '#666',
-  },
-  loadingSpinner: {
-    width: '48px',
-    height: '48px',
-    border: '4px solid #f3f3f3',
-    borderTop: '4px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '20px',
-  },
-  loadingText: {
-    fontSize: '16px',
-    color: '#666',
-  },
-  error: {
-    padding: '16px 20px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '8px',
-    marginBottom: '25px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '15px',
-  },
-  errorIcon: {
-    fontSize: '20px',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '80px 40px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '16px',
-    border: '2px dashed #ddd',
-  },
-  emptyIcon: {
-    fontSize: '64px',
-    marginBottom: '20px',
-    opacity: 0.8,
-  },
-  emptyTitle: {
-    color: '#333',
-    fontSize: '24px',
-    fontWeight: '600',
-    marginBottom: '12px',
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: '16px',
-    lineHeight: '1.6',
-    marginBottom: '30px',
-    maxWidth: '500px',
-    margin: '0 auto 30px',
-  },
-  emptyActions: {
-    display: 'flex',
-    gap: '15px',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-  },
-  primaryButton: {
-    padding: '14px 28px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-  },
-  secondaryButton: {
-    padding: '14px 28px',
-    backgroundColor: 'white',
-    color: '#667eea',
-    border: '2px solid #667eea',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-  },
-  bookmarksList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '25px',
-  },
-  bookmarkWrapper: {
-    position: 'relative',
-  },
-  bookmarkMeta: {
-    marginBottom: '10px',
-    paddingLeft: '5px',
-  },
-  bookmarkDate: {
-    fontSize: '13px',
-    color: '#999',
-    fontWeight: '500',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
-  tipsSection: {
-    marginTop: '50px',
-    padding: '25px',
-    backgroundColor: '#f0f4ff',
-    borderRadius: '12px',
-    border: '1px solid #d0deff',
-  },
-  tipsTitle: {
-    color: '#667eea',
-    fontSize: '18px',
-    fontWeight: '600',
-    marginBottom: '15px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  tipsList: {
-    margin: 0,
-    paddingLeft: '25px',
-    color: '#555',
-    lineHeight: '1.8',
-  },
-};
-
-// Add keyframe animation
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default Bookmarks;

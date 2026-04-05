@@ -3,11 +3,6 @@ import React, { useEffect } from 'react';
 import { useBible } from '../../hooks/useBible';
 import InteractiveVerseCard from './InteractiveVerseCard';
 
-/**
- * Verse of the Day Component
- * Displays today's featured Bible verse with full interaction capabilities
- * Now simplified - just handles fetching, InteractiveVerseCard handles all interactions
- */
 const VerseOfTheDay = ({ className = '' }) => {
   const { todaysVerse, loading, error, fetchTodaysVerse } = useBible();
 
@@ -17,11 +12,11 @@ const VerseOfTheDay = ({ className = '' }) => {
 
   if (loading) {
     return (
-      <div style={styles.container} className={className}>
-        <h2 style={styles.title}>✨ Verse of the Day</h2>
-        <div style={styles.loadingContainer}>
-          <div style={styles.loadingSpinner}></div>
-          <p style={styles.loadingText}>Loading today's verse...</p>
+      <div className={`text-center ${className}`}>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">✨ Verse of the Day</h2>
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
+          <p className="text-gray-500">Loading today's verse...</p>
         </div>
       </div>
     );
@@ -29,11 +24,14 @@ const VerseOfTheDay = ({ className = '' }) => {
 
   if (error) {
     return (
-      <div style={styles.container} className={className}>
-        <h2 style={styles.title}>✨ Verse of the Day</h2>
-        <div style={styles.error}>
-          <p>Unable to load today's verse. Please try again later.</p>
-          <button onClick={fetchTodaysVerse} style={styles.retryButton}>
+      <div className={`text-center ${className}`}>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">✨ Verse of the Day</h2>
+        <div className="p-6 bg-red-50 rounded-lg">
+          <p className="text-red-600 mb-3">Unable to load today's verse. Please try again later.</p>
+          <button
+            onClick={fetchTodaysVerse}
+            className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition"
+          >
             🔄 Retry
           </button>
         </div>
@@ -44,105 +42,20 @@ const VerseOfTheDay = ({ className = '' }) => {
   if (!todaysVerse) return null;
 
   return (
-    <div style={styles.wrapper} className={className}>
-      <h2 style={styles.title}>✨ Verse of the Day</h2>
-      
-      {/* Use the reusable InteractiveVerseCard */}
-      <InteractiveVerseCard 
+    <div className={className}>
+      <h2 className="text-2xl font-bold text-gray-800 text-center mb-4">✨ Verse of the Day</h2>
+      <InteractiveVerseCard
         verse={todaysVerse}
         showReadButton={true}
         showSharedBy={true}
       />
-
-      {/* Show note if this is a random verse (no scheduled verse for today) */}
       {todaysVerse.isRandom && (
-        <p style={styles.note}>
+        <p className="text-center text-gray-400 text-sm mt-4 italic p-3 bg-gray-50 rounded-lg">
           💡 No scheduled verse today. Enjoy this random verse from Scripture!
         </p>
       )}
     </div>
   );
 };
-
-const styles = {
-  wrapper: {
-    marginBottom: '30px',
-  },
-  title: {
-    fontSize: '28px',
-    color: '#333',
-    marginBottom: '20px',
-    textAlign: 'center',
-    fontWeight: '700',
-    letterSpacing: '-0.5px',
-  },
-  container: {
-    marginBottom: '30px',
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '60px 20px',
-    color: '#666',
-  },
-  loadingSpinner: {
-    width: '48px',
-    height: '48px',
-    border: '4px solid #f3f3f3',
-    borderTop: '4px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '16px',
-  },
-  loadingText: {
-    fontSize: '16px',
-    color: '#666',
-    margin: 0,
-  },
-  error: {
-    padding: '40px 20px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '8px',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: '15px',
-    padding: '10px 20px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-  },
-  note: {
-    textAlign: 'center',
-    color: '#999',
-    fontSize: '14px',
-    marginTop: '16px',
-    fontStyle: 'italic',
-    padding: '12px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-};
-
-// Add keyframes for spinner animation
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default VerseOfTheDay;

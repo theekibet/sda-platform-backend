@@ -1,5 +1,4 @@
 // src/components/bible/VerseCard.jsx
-// OPTION 3: Modern Brush with "Blessed through"
 import React from 'react';
 
 const VerseCard = ({ 
@@ -25,24 +24,26 @@ const VerseCard = ({
   if (!text) return null;
 
   return (
-    <div style={styles.container} className={className}>
+    <div className={`relative bg-white rounded-xl p-6 ${className}`}>
       {showShare && onShare && (
-        <button onClick={onShare} style={styles.shareButton}>
+        <button
+          onClick={onShare}
+          className="absolute top-4 right-4 bg-primary-500 text-white px-3 py-1.5 rounded-md text-sm font-semibold shadow-sm hover:bg-primary-600 transition"
+        >
           📤 Share
         </button>
       )}
 
-      <div style={styles.reference}>{reference}</div>
-      <div style={styles.verse}>"{text.trim()}"</div>
-      <div style={styles.translation}>{translation}</div>
+      <div className="text-xl font-bold text-primary-500 mb-3 tracking-tight">{reference}</div>
+      <div className="text-lg leading-relaxed text-gray-800 mb-3 italic whitespace-pre-wrap break-words font-serif">"{text.trim()}"</div>
+      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{translation}</div>
       
       {showSharedBy && sharedBy && (
-        <div style={styles.sharedBy}>
-          <div style={styles.gradientLine}></div>
-          <div style={styles.sharedByContent}>
-            <span style={styles.sharedByIcon}>🌹</span>
-            <span style={styles.sharedByText}>
-              Shared by: <span style={styles.sharedByName}>{sharedBy}</span>
+        <div className="pt-4 mt-3 border-t border-gray-200">
+          <div className="flex items-center justify-center gap-2 text-gray-500">
+            <span className="text-sm">🌹</span>
+            <span className="text-sm">
+              Shared by: <span className="text-primary-500 font-bold text-base font-['Satisfy']">{sharedBy}</span>
             </span>
           </div>
         </div>
@@ -51,87 +52,10 @@ const VerseCard = ({
   );
 };
 
-const styles = {
-  container: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '28px',
-    position: 'relative',
-  },
-  shareButton: {
-    position: 'absolute',
-    top: '16px',
-    right: '16px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-    boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)',
-  },
-  reference: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#667eea',
-    marginBottom: '16px',
-    letterSpacing: '-0.3px',
-  },
-  verse: {
-    fontSize: '20px',
-    lineHeight: '1.7',
-    color: '#2d3748',
-    marginBottom: '16px',
-    fontStyle: 'italic',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    fontFamily: 'Georgia, serif',
-  },
-  translation: {
-    fontSize: '14px',
-    color: '#a0aec0',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  sharedBy: {
-    paddingTop: '16px',
-    marginTop: '16px',
-  },
-  gradientLine: {
-    height: '1px',
-    background: 'linear-gradient(to right, transparent, #cbd5e0, transparent)',
-    marginBottom: '12px',
-  },
-  sharedByContent: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-  },
-  sharedByIcon: {
-    fontSize: '18px',
-  },
-  sharedByText: {
-    fontSize: '15px',
-    color: '#718096',
-    fontFamily: "'Satisfy', cursive",
-  },
-  sharedByName: {
-    color: '#667eea',
-    fontWeight: '700',
-    fontSize: '19px',
-    letterSpacing: '0.5px',
-  },
-};
-
-// Add Google Font for Satisfy
+// Ensure Satisfy font is loaded
 if (typeof document !== 'undefined') {
-  const existingLink = document.querySelector('link[href*="Satisfy"]');
-  if (!existingLink) {
+  const link = document.querySelector('link[href*="Satisfy"]');
+  if (!link) {
     const fontLink = document.createElement('link');
     fontLink.href = 'https://fonts.googleapis.com/css2?family=Satisfy&display=swap';
     fontLink.rel = 'stylesheet';

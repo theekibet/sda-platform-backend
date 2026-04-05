@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MODERATION_ACTIONS, CONTENT_TYPES } from '../../../utils/constants';
+import { MODERATION_ACTIONS, CONTENT_TYPES, SUSPENSION_DURATIONS } from '../../../constants/constants';
 
 const ModerationActionModal = ({ item, onClose, onAction }) => {
   const [selectedAction, setSelectedAction] = useState('');
@@ -8,6 +8,7 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
   const [warningMessage, setWarningMessage] = useState('');
   const [notifyUser, setNotifyUser] = useState(true);
   const [step, setStep] = useState(1); // 1: select action, 2: provide details
+  const [postStatus, setPostStatus] = useState(item.status || 'active');
 
   const handleActionSelect = (action) => {
     setSelectedAction(action);
@@ -28,6 +29,17 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
       actionData.suspensionDuration = suspensionDuration;
     } else if (selectedAction === 'warn') {
       actionData.warningMessage = warningMessage;
+    } else if (selectedAction === 'pin') {
+      actionData.postStatus = 'pinned';
+    } else if (selectedAction === 'archive') {
+      actionData.postStatus = 'archived';
+    } else if (selectedAction === 'feature') {
+      actionData.postStatus = 'featured';
+    } else if (selectedAction === 'remove') {
+      actionData.postStatus = 'removed';
+    } else if (selectedAction === 'mark_spam') {
+      actionData.postStatus = 'spam';
+      actionData.reason = 'Marked as spam';
     }
 
     onAction(selectedAction, actionData);
@@ -43,7 +55,14 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
       case 'prayerRequest': return 'prayer request';
       case 'testimony': return 'testimony';
       case 'groupDiscussion': return 'group discussion';
+      case 'groupMessage': return 'group message';
       case 'user': return 'user profile';
+      case 'communityPost': return 'community post';
+      case 'event': return 'event';
+      case 'donation': return 'donation post';
+      case 'support': return 'support request';
+      case 'announcement': return 'announcement';
+      case 'general': return 'post';
       default: return 'content';
     }
   };
@@ -68,7 +87,15 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
 
           <div style={styles.contentPreview}>
             <strong>Content:</strong>
-            <p>{item.contentSnippet || item.description || 'No preview available'}</p>
+            <p>{item.contentSnippet || item.description || item.title || 'No preview available'}</p>
+            {item.type && (
+              <div style={styles.contentMeta}>
+                <span style={styles.metaBadge}>Type: {item.type}</span>
+                {item.status && (
+                  <span style={styles.metaBadge}>Status: {item.status}</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={styles.actionsGrid}>
@@ -94,7 +121,7 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
                 <div style={styles.actionInfo}>
                   <strong style={styles.actionLabel}>{action.label}</strong>
                   <span style={styles.actionDescription}>
-                    {getActionDescription(action.value)}
+                    {getActionDescription(action.value, item.contentType)}
                   </span>
                 </div>
               </button>
@@ -121,7 +148,7 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
         
         <div style={styles.header}>
           <button onClick={handleBack} style={styles.backButton}>←</button>
-          <h2 style={styles.title}>{actionDetails?.label} Content</h2>
+          <h2 style={styles.title}>{actionDetails?.label} {getContentTypeLabel()}</h2>
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -133,8 +160,8 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={`Why are you ${selectedAction}ing this content?`}
-              required
+              placeholder={`Why are you ${selectedAction}ing this ${getContentTypeLabel()}?`}
+              required={selectedAction !== 'pin' && selectedAction !== 'archive' && selectedAction !== 'feature'}
               style={styles.textarea}
               rows="3"
             />
@@ -169,6 +196,29 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
             </div>
           )}
 
+          {/* Post Status Update (for community posts) */}
+          {(selectedAction === 'pin' || selectedAction === 'archive' || selectedAction === 'feature' || selectedAction === 'remove' || selectedAction === 'mark_spam') && (
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                {selectedAction === 'pin' && 'Pin this post to the top of the community board'}
+                {selectedAction === 'archive' && 'Archive this post (hide from main feed)'}
+                {selectedAction === 'feature' && 'Feature this post (highlight in featured section)'}
+                {selectedAction === 'remove' && 'Remove this content from the platform'}
+                {selectedAction === 'mark_spam' && 'Mark this content as spam'}
+              </label>
+              <div style={styles.infoBox}>
+                <span>⚠️</span>
+                <span>
+                  {selectedAction === 'pin' && 'Pinned posts will appear at the top of the community board.'}
+                  {selectedAction === 'archive' && 'Archived posts can be restored later if needed.'}
+                  {selectedAction === 'feature' && 'Featured posts will appear in the highlighted section.'}
+                  {selectedAction === 'remove' && 'This action is permanent and cannot be undone.'}
+                  {selectedAction === 'mark_spam' && 'This will flag the content and notify the author.'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Notify user option */}
           <div style={styles.checkboxGroup}>
             <label style={styles.checkboxLabel}>
@@ -184,12 +234,18 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
           {/* Preview of content */}
           <div style={styles.previewBox}>
             <strong>Content being moderated:</strong>
-            <p style={styles.previewText}>{item.contentSnippet}</p>
+            <p style={styles.previewText}>{item.contentSnippet || item.description || item.title || 'No preview available'}</p>
+            {item.author && (
+              <div style={styles.authorInfo}>
+                <span>👤 Author: {item.author.name}</span>
+                {item.author.email && <span>📧 {item.author.email}</span>}
+              </div>
+            )}
           </div>
 
           {/* Form buttons */}
           <div style={styles.footer}>
-            <button type="button" onClick={handleBack} style={styles.backButton}>
+            <button type="button" onClick={handleBack} style={styles.backButtonFooter}>
               Back
             </button>
             <button type="submit" style={styles.submitButton}>
@@ -203,18 +259,28 @@ const ModerationActionModal = ({ item, onClose, onAction }) => {
 };
 
 // Helper function for action descriptions
-const getActionDescription = (action) => {
+const getActionDescription = (action, contentType) => {
+  const isPost = ['communityPost', 'event', 'donation', 'support', 'announcement', 'general'].includes(contentType);
+  
   switch (action) {
     case 'approve':
       return 'Mark as approved - no further action needed';
     case 'remove':
-      return 'Remove this content from the platform';
+      return isPost ? 'Remove this post from the community board' : 'Remove this content from the platform';
     case 'warn':
       return 'Send a warning to the user';
     case 'flag':
       return 'Flag for further review';
     case 'dismiss':
       return 'Dismiss this report (no action)';
+    case 'pin':
+      return 'Pin this post to the top of the community board';
+    case 'archive':
+      return 'Archive this post (hide from main feed)';
+    case 'feature':
+      return 'Feature this post in the highlighted section';
+    case 'mark_spam':
+      return 'Mark this content as spam and flag the user';
     default:
       return '';
   }
@@ -274,6 +340,20 @@ const styles = {
     color: '#667eea',
     padding: '5px',
   },
+  backButtonFooter: {
+    padding: '10px 20px',
+    backgroundColor: '#f0f0f0',
+    color: '#666',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'background 0.2s',
+    '&:hover': {
+      backgroundColor: '#e0e0e0',
+    },
+  },
   title: {
     margin: 0,
     color: '#333',
@@ -293,6 +373,29 @@ const styles = {
     fontSize: '14px',
     color: '#333',
     lineHeight: '1.5',
+  },
+  contentMeta: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '10px',
+    flexWrap: 'wrap',
+  },
+  metaBadge: {
+    padding: '2px 8px',
+    backgroundColor: '#e0e7ff',
+    borderRadius: '12px',
+    fontSize: '11px',
+    color: '#667eea',
+  },
+  authorInfo: {
+    marginTop: '10px',
+    paddingTop: '8px',
+    borderTop: '1px solid #e0e0e0',
+    fontSize: '12px',
+    color: '#666',
+    display: 'flex',
+    gap: '16px',
+    flexWrap: 'wrap',
   },
   actionsGrid: {
     display: 'flex',
@@ -378,6 +481,15 @@ const styles = {
       outline: 'none',
       borderColor: '#667eea',
     },
+  },
+  infoBox: {
+    padding: '12px',
+    backgroundColor: '#fff3cd',
+    borderRadius: '8px',
+    display: 'flex',
+    gap: '10px',
+    fontSize: '13px',
+    color: '#856404',
   },
   checkboxGroup: {
     marginBottom: '10px',

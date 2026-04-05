@@ -9,7 +9,7 @@ import {
   deleteUser,
 } from '../../services/api';
 import Avatar from '../../components/common/Avatar';
-import './UserManagement.css'; // Import the CSS file
+import '../../styles/admin/UserManagement.css'; // Import the CSS file
 
 function UserManagement() {
   const [users, setUsers] = useState([]);

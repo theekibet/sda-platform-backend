@@ -1,9 +1,10 @@
-import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, Max, MaxLength } from 'class-validator';
 
 export class UpdateLocationDto {
   @IsOptional()
   @IsString()
-  locationName?: string;  // Changed from city/region/country
+  @MaxLength(200, { message: 'Location name cannot exceed 200 characters' })
+  locationName?: string;
 
   @IsOptional()
   @IsNumber()
@@ -19,9 +20,9 @@ export class UpdateLocationDto {
 
   @IsOptional()
   @IsBoolean()
-  showLocation?: boolean;  // Keep for backward compatibility
+  showLocation?: boolean;
 
   @IsOptional()
-  @IsIn(['exact', 'city', 'country', 'none'])
-  locationPrivacy?: string;
+  @IsIn(['exact', 'city', 'country', 'none'], { message: 'Location privacy must be exact, city, country, or none' })
+  locationPrivacy?: 'exact' | 'city' | 'country' | 'none';
 }

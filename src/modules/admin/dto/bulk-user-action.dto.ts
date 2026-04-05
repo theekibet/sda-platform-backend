@@ -1,7 +1,19 @@
+import { IsString, IsNotEmpty, IsArray, IsOptional, IsIn } from 'class-validator';
+
 export class BulkUserActionDto {
-    action: 'suspend' | 'unsuspend' | 'delete' | 'makeAdmin' | 'removeAdmin';
-    userIds: string[];
-    reason?: string;
-    duration?: string; // For suspensions: '1', '7', '30', 'permanent'
-  }
-  
+  @IsIn(['suspend', 'unsuspend', 'delete', 'makeAdmin', 'removeAdmin'])
+  action: 'suspend' | 'unsuspend' | 'delete' | 'makeAdmin' | 'removeAdmin';
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty()
+  userIds: string[];
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsString()
+  duration?: string; // For suspensions: '1', '7', '30', 'permanent'
+}

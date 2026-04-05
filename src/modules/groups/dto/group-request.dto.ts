@@ -1,4 +1,12 @@
+import { IsString, IsOptional, MaxLength, IsNotEmpty } from 'class-validator';
+
 export class GroupRequestDto {
-    groupId: string;
-    message?: string;
-  }
+  @IsString()
+  @IsNotEmpty()
+  groupId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Message cannot exceed 500 characters' })
+  message?: string;
+}

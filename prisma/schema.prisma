@@ -9,105 +9,121 @@ datasource db {
 
 // ============ MEMBER MODEL ============
 model Member {
-  id       String  @id @default(cuid())
-  name     String
-  email    String? @unique
-  phone    String? @unique
-  password String
-  avatarUrl String?  // URL to profile picture
-  
-  // Simple user profile
+  id        String  @id @default(cuid())
+  name      String
+  email     String? @unique
+  phone     String? @unique
+  password  String
+  avatarUrl String?
+
   bio    String?
   age    Int?
   gender String?
 
-  // Location - SIMPLIFIED
-  locationName  String?   // "Nairobi, Kenya" or "Kenya" (for display)
-  latitude      Float?    // For accurate distance calculation
-  longitude     Float?
-  locationPrivacy String @default("city") // 'exact', 'city', 'country', 'none'
-  locationLastUpdated DateTime? // Track when location was last updated
+  locationName        String?
+  latitude            Float?
+  longitude           Float?
+  locationLastUpdated DateTime?
 
-  // Activity tracking
   isActive     Boolean   @default(true)
   lastActiveAt DateTime?
 
-  // ============ ADMIN FIELDS ============
-  isAdmin           Boolean   @default(false)
-  isSuspended       Boolean   @default(false)
-  suspendedUntil    DateTime?
-  suspensionReason  String?
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
-  adminNotes        String?
+  isAdmin          Boolean   @default(false)
+  isSuperAdmin     Boolean   @default(false)
+  isSuspended      Boolean   @default(false)
+  suspendedUntil   DateTime?
+  suspensionReason String?
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+  adminNotes       String?
 
-  // ============ RELATIONS ============
   // Prayer
-  prayerRequests     PrayerRequest[]
-  prayersGiven       PrayerInteraction[]
-  
+  prayerRequests PrayerRequest[]
+  prayersGiven   PrayerInteraction[]
+
   // Testimonies
-  testimonies        Testimony[]
-  encouragements     Encouragement[]
-  
-  // Groups - UPDATED RELATIONS
-  groupsCreated      Group[]          
-  groupMemberships   GroupMember[]
-  groupMessages      GroupMessage[]      // 👈 NEW
-  messageReactions   MessageReaction[]    // 👈 NEW
-  groupEventsCreated GroupEvent[]      
-  groupEventAttendance GroupEventAttendee[]
+  testimonies    Testimony[]
+  encouragements Encouragement[]
+
+  // Groups - Simplified (no chat, no events)
+  groupsCreated        Group[]
+  groupMemberships     GroupMember[]
+
+  // Discussions
+  discussionsCreated   Discussion[]
+  bookmarkedDiscussions DiscussionBookmark[]
+  discussionComments   DiscussionComment[]
+  discussionVotes      DiscussionVote[]
+  commentVotes         CommentVote[]
 
   // Moderation
-  reportsCreated     Report[]    @relation("ReportedBy")
-  reportsReceived    Report[]    @relation("ReportedUser")
-  reportsResolved    Report[]    @relation("ResolvedBy")
+  reportsCreated     Report[]        @relation("ReportedBy")
+  reportsReceived    Report[]        @relation("ReportedUser")
+  reportsResolved    Report[]        @relation("ResolvedBy")
   moderationActions  ModerationLog[] @relation("Moderator")
   moderationReceived ModerationLog[] @relation("ModeratedUser")
 
   // Audit
-  auditLogs          AuditLog[]
-  systemLogs         SystemLog[]
+  auditLogs  AuditLog[]
+  systemLogs SystemLog[]
 
   // Settings
-  settingsUpdated    SystemSetting[] @relation("UpdatedBy")
-  featuresUpdated    FeatureFlag[]   @relation("FeatureUpdatedBy")
+  settingsUpdated SystemSetting[] @relation("UpdatedBy")
+  featuresUpdated FeatureFlag[]   @relation("FeatureUpdatedBy")
 
   // Announcements
   announcementsCreated Announcement[]     @relation("CreatedBy")
   announcementViews    AnnouncementView[]
 
   // Security
-  blockedIPsCreated    BlockedIP[]       @relation("BlockedBy")
-  userSessions         UserSession[]
-  loginAttempts        LoginAttempt[]
+  blockedIPsCreated BlockedIP[]    @relation("BlockedBy")
+  userSessions      UserSession[]
+  loginAttempts     LoginAttempt[]
 
   // Backups
-  backupsCreated       Backup[]          @relation("BackupCreatedBy")
+  backupsCreated Backup[] @relation("BackupCreatedBy")
 
   // Bible
-  sharedVerses        SharedVerse[]
-  reviewedVerses      SharedVerse[] @relation("ReviewedVerses")
-  verseLikes          VerseLike[]
-  verseBookmarks      VerseBookmark[]
-  verseComments       VerseComment[]
-  
-  // Community Board
-  communityPosts      CommunityPost[]
-  communityResponses  CommunityResponse[]
+  sharedVerses   SharedVerse[]
+  reviewedVerses SharedVerse[]   @relation("ReviewedVerses")
+  verseLikes     VerseLike[]
+  verseBookmarks VerseBookmark[]
+  verseComments  VerseComment[]
+
+  // Community Board (Handles all community posts including events)
+  communityPosts     CommunityPost[]
+  communityResponses CommunityResponse[]
+  communityReportsSubmitted CommunityReport[] @relation("CommunityReportReporter")
+  communityReportsReviewed  CommunityReport[] @relation("CommunityReportReviewer")
+  communityBookmarks CommunityBookmark[]
 
   // Notifications
-  notifications        Notification[]
+  notifications           Notification[]
   notificationPreferences NotificationPreference?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([latitude, longitude])
   @@map("members")
 }
 
-// ============ PRAYER & TESTIMONIES ============
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([token])
+  @@map("password_resets")
+}
+
+// ============ PRAYER & TESTIMONIES ============
 model PrayerRequest {
   id          String  @id @default(cuid())
   content     String
@@ -115,19 +131,17 @@ model PrayerRequest {
   author      Member? @relation(fields: [authorId], references: [id])
   isAnonymous Boolean @default(false)
 
-  // Location context (optional)
   locationName String?
+  prayedCount  Int            @default(0)
+  sharedToCommunityAt DateTime?
 
-  // Engagement
-  prayedCount Int @default(0)
-
-  // Relations
   prayers     PrayerInteraction[]
   testimonies Testimony[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([sharedToCommunityAt])
   @@map("prayer_requests")
 }
 
@@ -154,8 +168,8 @@ model Testimony {
   prayerRequestId String?
   prayerRequest   PrayerRequest? @relation(fields: [prayerRequestId], references: [id])
 
-  encouragedCount Int @default(0)
-  encouragements Encouragement[]
+  encouragedCount Int             @default(0)
+  encouragements  Encouragement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -176,265 +190,313 @@ model Encouragement {
   @@map("encouragements")
 }
 
-// ============ GROUPS (Simplified Single Chat) ============
+// ============ TAGS ============
+model Tag {
+  id            String       @id @default(cuid())
+  name          String       @unique
+  description   String?
+  followerCount Int          @default(0)
+  usageCount    Int          @default(0)
 
+  discussions Discussion[]
+  groups      Group[]
+
+  createdAt DateTime @default(now())
+
+  @@map("tags")
+}
+
+// ============ GROUPS (Simplified - No Chat, No Events) ============
 model Group {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String
-  category    String    // 'GENERAL', 'MUSIC', 'BIBLE_STUDY', 'PRAYER', 'MENTAL_HEALTH', 'LOCATION', etc.
-  isPrivate   Boolean   @default(false)
-  location    String?   // City or "Online" (display purposes only)
-  imageUrl    String?   // Optional group cover image
-  
-  // Rules and settings
-  rules       String?   
-  requireApproval Boolean @default(true)
-  
-  // Integration fields
-  isDefault      Boolean  @default(false)  // For "General Discussion" group
-  allowAnonymous Boolean  @default(false)
-  sortOrder      Int?
-  
-  // ============ NEW FIELDS ============
-  // Explicitly marks if this group is location-specific
-  isLocationBased Boolean @default(false)
-  
-  // How the group primarily meets: 'online', 'in-person', 'hybrid'
-  meetingType     String  @default("online")
-  
-  // Statistics
-  memberCount Int       @default(0)
-  messageCount Int      @default(0)        // 👈 NEW: Track total messages
-  lastMessageAt DateTime?                   // 👈 NEW: For sorting by activity
-  
-  // Relations
-  createdById String
-  createdBy   Member    @relation(fields: [createdById], references: [id])
-  members     GroupMember[]
-  messages    GroupMessage[]    // 👈 NEW: Single chat per group
-  events      GroupEvent[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
 
-  @@index([category])
+  tags        Tag[]
+
+  isPrivate   Boolean @default(false)
+  location    String?
+  imageUrl    String?
+
+  rules           String?
+  requireApproval Boolean @default(false)
+
+  isDefault      Boolean @default(false)
+  allowAnonymous Boolean @default(false)
+  sortOrder      Int?
+
+  isLocationBased Boolean @default(false)
+  meetingType     String  @default("online")
+
+  memberCount   Int       @default(0)
+  discussionCount Int     @default(0)  // Track number of discussions
+
+  createdById String
+  createdBy   Member         @relation(fields: [createdById], references: [id])
+  members     GroupMember[]
+  discussions Discussion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([isDefault])
   @@index([meetingType])
-  @@index([lastMessageAt])  // 👈 NEW: Index for activity sorting
   @@map("groups")
 }
 
 model GroupMember {
-  id        String   @id @default(cuid())
-  groupId   String
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  memberId  String
-  member    Member   @relation(fields: [memberId], references: [id])
-  
-  role      String   @default("member") // "admin", "moderator", "member"
-  status    String   @default("pending") // "pending", "approved", "rejected"
-  
-  // 👇 NEW: Track read receipts
-  lastReadAt DateTime?  // When user last read the chat
-  isMuted    Boolean    @default(false)
-  
-  joinedAt  DateTime @default(now())
-  
+  id       String @id @default(cuid())
+  groupId  String
+  group    Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id])
+
+  role   String @default("member")
+  status String @default("pending")  // pending, approved
+
+  joinedAt DateTime @default(now())
+
   @@unique([groupId, memberId])
   @@map("group_members")
 }
 
-// 👇 NEW: Single Message Model (replaces GroupDiscussion + GroupDiscussionReply)
-model GroupMessage {
-  id          String    @id @default(cuid())
-  content     String    // Message content
-  
-  groupId     String
-  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  authorId    String
-  author      Member    @relation(fields: [authorId], references: [id])
-  
-  // Message metadata
-  messageType String    @default("text") // 'text', 'image', 'file', 'voice'
-  fileUrl     String?   // For images/files
-  fileSize    Int?      // File size in bytes
-  fileName    String?   // Original file name
-  
-  // Features
-  isAnonymous Boolean   @default(false)
-  isPinned    Boolean   @default(false)   // 👈 NEW: Pin important messages
-  isEdited    Boolean   @default(false)
-  
-  // Thread replies (optional - for replies to specific messages)
-  replyToId   String?
-  replyTo     GroupMessage? @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies     GroupMessage[] @relation("MessageReplies")
-  
-  // Engagement
-  reactions   MessageReaction[]
-  
-  // Metadata
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([groupId, createdAt])
-  @@index([authorId])
-  @@index([isPinned])
-  @@map("group_messages")
-}
-
-// 👇 NEW: Message Reactions
-model MessageReaction {
-  id        String        @id @default(cuid())
-  messageId String
-  message   GroupMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  userId    String
-  user      Member        @relation(fields: [userId], references: [id])
-  
-  reaction  String // 'like', 'love', 'pray', 'amen', 'thanks'
-  
-  createdAt DateTime @default(now())
-
-  @@unique([messageId, userId, reaction])
-  @@map("message_reactions")
-}
-
-// Group Events (unchanged)
-model GroupEvent {
-  id          String    @id @default(cuid())
-  title       String
-  description String
-  groupId     String
-  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  
-  date        DateTime
-  endDate     DateTime?
-  location    String
-  isOnline    Boolean   @default(false)
-  meetingLink String?   // For online events
-  
-  createdById String
-  createdBy   Member    @relation(fields: [createdById], references: [id])
-  
-  attendees   GroupEventAttendee[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@map("group_events")
-}
-
-model GroupEventAttendee {
-  id        String     @id @default(cuid())
-  eventId   String
-  event     GroupEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  memberId  String
-  member    Member     @relation(fields: [memberId], references: [id])
-  
-  status    String     @default("going") // "going", "maybe", "not-going"
-  
-  createdAt DateTime   @default(now())
-
-  @@unique([eventId, memberId])
-  @@map("group_event_attendees")
-}
-
-// ============ COMMUNITY BOARD (Public Posts) ============
-// (Keep all Community Board models as they are)
-
-model CommunityPost {
+// ============ DISCUSSIONS (Reddit-style) ============
+model Discussion {
   id          String   @id @default(cuid())
-  
+  title       String
+  content     String
+  searchText  String?
+
   authorId    String
   author      Member   @relation(fields: [authorId], references: [id])
-  
-  // Post type - public events, support, rides, etc.
-  type        String   @default("general") // 'event', 'support', 'ride', 'donation', 'announcement', 'general'
-  
-  // Basic content
-  title       String
-  description String
-  
-  // For public events (optional)
-  eventDate   DateTime?
-  location    String?
-  
-  // For support/donations (optional)
-  goalAmount  Float?
-  currentAmount Float?   @default(0)
-  itemsNeeded String?
-  
-  // For ride sharing (optional)
-  fromLocation String?
-  toLocation   String?
-  departureTime DateTime?
-  seatsAvailable Int?
-  
-  // Contact info (optional)
-  contactPhone String?
-  contactEmail String?
-  
-  // Engagement counts
-  interestedCount Int @default(0)
-  goingCount     Int @default(0)
-  
+
+  // Optional: Can exist standalone OR inside a group
+  groupId     String?
+  group       Group?   @relation(fields: [groupId], references: [id])
+
+  // Discovery
+  tags        Tag[]
+
+  // Engagement
+  upvotes     Int      @default(0)
+  viewCount   Int      @default(0)
+
+  // Status
+  isAnonymous Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  status      String   @default("active")  // active, archived, removed
+
   // Relations
-  responses    CommunityResponse[]
-  
+  comments    DiscussionComment[]
+  votes       DiscussionVote[]
+  bookmarks DiscussionBookmark[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  @@index([type])
+
+  @@index([searchText])
   @@index([createdAt])
+  @@index([groupId])
+  @@index([status])
+  @@map("discussions")
+}
+model DiscussionBookmark {
+  id           String     @id @default(cuid())
+  userId       String
+  user         Member     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, discussionId])
+  @@map("discussion_bookmarks")
+}
+model DiscussionVote {
+  id           String     @id @default(cuid())
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         Member     @relation(fields: [userId], references: [id])
+
+  value     Int      // 1 for upvote
+  createdAt DateTime @default(now())
+
+  @@unique([discussionId, userId])
+  @@map("discussion_votes")
+}
+
+model DiscussionComment {
+  id           String   @id @default(cuid())
+  content      String
+
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       Member     @relation(fields: [authorId], references: [id])
+
+  // 2-level nesting: null = top-level, has value = reply to comment
+  parentId     String?
+  parent       DiscussionComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies      DiscussionComment[] @relation("CommentReplies")
+
+  upvotes      Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  votes CommentVote[] 
+  
+  @@index([discussionId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@map("discussion_comments")
+}
+
+model CommentVote {
+  id        String           @id @default(cuid())
+  commentId String
+  comment   DiscussionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      Member           @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
+  @@map("comment_votes")
+}
+
+// ============ COMMUNITY BOARD (Handles all community content) ============
+model CommunityPost {
+  id String @id @default(cuid())
+
+  authorId String
+  author   Member @relation(fields: [authorId], references: [id])
+
+  type String @default("general")  // event, prayer, testimony, service, donation, general, announcement
+
+  title       String
+  description String
+
+  // Event-specific fields
+  eventDate DateTime?
+  location  String?
+
+  // Service/Donation specific
+  goalAmount    Float?
+  currentAmount Float?  @default(0)
+  itemsNeeded   String?
+
+  // Contact info
+  contactPhone String?
+  contactEmail String?
+
+  // Status & Expiry
+  status      String    @default("active")  // active, expired, archived
+  expiresAt   DateTime?
+  reportCount Int       @default(0)
+  isFlagged   Boolean   @default(false)
+
+  // Relations
+  prayerRequestId String?  // Link to original prayer request if this came from prayer wall
+
+  responses CommunityResponse[]
+  reports   CommunityReport[]
+  bookmarks CommunityBookmark[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for performance
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@index([status, expiresAt])
   @@map("community_posts")
 }
 
+model CommunityBookmark {
+  id     String        @id @default(cuid())
+  userId String
+  user   Member        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId String
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+  @@map("community_bookmarks")
+}
+
 model CommunityResponse {
-  id          String   @id @default(cuid())
-  
-  postId      String
-  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId      String
-  user        Member   @relation(fields: [userId], references: [id])
-  
-  response    String   // 'interested', 'going', 'helping', 'praying'
-  comment     String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id String @id @default(cuid())
+
+  postId String
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   Member        @relation(fields: [userId], references: [id])
+
+  response String  // interested, going, helping, praying, comment
+  comment  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([postId, userId])
   @@map("community_responses")
 }
 
+model CommunityReport {
+  id         String        @id @default(cuid())
+  postId     String
+  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   Member        @relation("CommunityReportReporter", fields: [reporterId], references: [id])
+
+  reason      String
+  description String?
+
+  status       String    @default("pending")
+  reviewedById String?
+  reviewedBy   Member?   @relation("CommunityReportReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  adminNotes   String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([postId, reporterId])
+  @@index([status])
+  @@map("community_reports")
+}
+
 // ============ MODERATION & REPORTING ============
-// (All moderation models remain the same)
 model Report {
-  id            String   @id @default(cuid())
-  reportedById  String
-  reportedBy    Member   @relation("ReportedBy", fields: [reportedById], references: [id])
+  id             String  @id @default(cuid())
+  reportedById   String
+  reportedBy     Member  @relation("ReportedBy", fields: [reportedById], references: [id])
   reportedUserId String?
-  reportedUser  Member?  @relation("ReportedUser", fields: [reportedUserId], references: [id])
-  
-  contentType   String   // 'prayerRequest', 'testimony', 'groupMessage', 'communityPost', 'user'  // 👈 UPDATED
-  contentId     String
+  reportedUser   Member? @relation("ReportedUser", fields: [reportedUserId], references: [id])
+
+  contentType    String
+  contentId      String
   contentSnippet String?
-  
-  category      String   // 'spam', 'harassment', 'inappropriate', 'fake', 'other', 'auto-flagged'
-  description   String?
-  
-  status        String   @default("pending") // 'pending', 'investigating', 'resolved', 'dismissed'
-  priority      String   @default("medium") // 'low', 'medium', 'high', 'critical'
-  
-  resolvedById  String?
-  resolvedBy    Member?  @relation("ResolvedBy", fields: [resolvedById], references: [id])
-  resolution    String?
-  resolvedAt    DateTime?
-  adminNotes    String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+
+  category    String
+  description String?
+
+  status   String @default("pending")
+  priority String @default("medium")
+
+  resolvedById String?
+  resolvedBy   Member?   @relation("ResolvedBy", fields: [resolvedById], references: [id])
+  resolution   String?
+  resolvedAt   DateTime?
+  adminNotes   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([contentType, contentId])
@@ -442,21 +504,21 @@ model Report {
 }
 
 model ModerationLog {
-  id           String   @id @default(cuid())
-  moderatorId  String
-  moderator    Member   @relation("Moderator", fields: [moderatorId], references: [id])
-  
-  action       String   // 'approved', 'removed', 'warned', 'suspended', 'report_resolved'
-  contentType  String
-  contentId    String
+  id          String @id @default(cuid())
+  moderatorId String
+  moderator   Member @relation("Moderator", fields: [moderatorId], references: [id])
+
+  action         String
+  contentType    String
+  contentId      String
   contentSnippet String?
-  
+
   reason       String?
   details      String?
   targetUserId String?
-  targetUser   Member?  @relation("ModeratedUser", fields: [targetUserId], references: [id])
-  
-  createdAt    DateTime @default(now())
+  targetUser   Member? @relation("ModeratedUser", fields: [targetUserId], references: [id])
+
+  createdAt DateTime @default(now())
 
   @@index([moderatorId])
   @@index([contentType, contentId])
@@ -464,37 +526,35 @@ model ModerationLog {
 }
 
 model ContentFlag {
-  id         String   @id @default(cuid())
-  keyword    String   @unique
-  severity   String   @default("medium")
-  action     String   @default("flag")
-  isActive   Boolean  @default(true)
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
+  id       String  @id @default(cuid())
+  keyword  String  @unique
+  severity String  @default("medium")
+  action   String  @default("flag")
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("content_flags")
 }
 
 // ============ AUDIT & SYSTEM LOGS ============
-// (Keep all audit models as they are)
-
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  user       Member?  @relation(fields: [userId], references: [id])
-  
-  action     String   // 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
-  entity     String
-  entityId   String?
-  
-  oldValue   String?
-  newValue   String?
-  ipAddress  String?
-  userAgent  String?
-  metadata   String?
-  
-  createdAt  DateTime @default(now())
+  id     String  @id @default(cuid())
+  userId String?
+  user   Member? @relation(fields: [userId], references: [id])
+
+  action   String
+  entity   String
+  entityId String?
+
+  oldValue  String?
+  newValue  String?
+  ipAddress String?
+  userAgent String?
+  metadata  String?
+
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])
@@ -503,15 +563,15 @@ model AuditLog {
 }
 
 model SystemLog {
-  id        String   @id @default(cuid())
-  level     String   // 'info', 'warn', 'error', 'debug'
-  source    String
-  message   String
-  stack     String?
-  metadata  String?
-  userId    String?
-  user      Member?  @relation(fields: [userId], references: [id])
-  
+  id       String  @id @default(cuid())
+  level    String
+  source   String
+  message  String
+  stack    String?
+  metadata String?
+  userId   String?
+  user     Member? @relation(fields: [userId], references: [id])
+
   createdAt DateTime @default(now())
 
   @@index([level])
@@ -521,71 +581,67 @@ model SystemLog {
 }
 
 // ============ SETTINGS & FEATURE FLAGS ============
-// (Keep all settings models as they are)
-
 model SystemSetting {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String   // JSON string
-  type        String   @default("string")
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  type        String  @default("string")
   description String?
-  category    String   @default("general")
-  
-  isPublic    Boolean  @default(false)
-  isEncrypted Boolean  @default(false)
-  
+  category    String  @default("general")
+
+  isPublic    Boolean @default(false)
+  isEncrypted Boolean @default(false)
+
   updatedById String?
-  updatedBy   Member?  @relation("UpdatedBy", fields: [updatedById], references: [id])
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedBy   Member? @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("system_settings")
 }
 
 model FeatureFlag {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
-  enabled     Boolean  @default(false)
-  
-  percentage  Int?     @default(100)
-  userGroups  String?
-  
+  enabled     Boolean @default(false)
+
+  percentage Int?    @default(100)
+  userGroups String?
+
   updatedById String?
-  updatedBy   Member?  @relation("FeatureUpdatedBy", fields: [updatedById], references: [id])
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedBy   Member? @relation("FeatureUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("feature_flags")
 }
 
 // ============ ANNOUNCEMENTS ============
-// (Keep all announcement models as they are)
-
 model Announcement {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  type        String   @default("info")
-  
+  id      String @id @default(cuid())
+  title   String
+  content String
+  type    String @default("info")
+
   targetRole  String?
   targetUsers String?
-  
+
   scheduledAt DateTime?
   expiresAt   DateTime?
-  isActive    Boolean  @default(true)
-  
-  viewCount   Int      @default(0)
-  
+  isActive    Boolean   @default(true)
+
+  viewCount Int @default(0)
+
   createdById String
-  createdBy   Member   @relation("CreatedBy", fields: [createdById], references: [id])
-  
-  views       AnnouncementView[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   Member @relation("CreatedBy", fields: [createdById], references: [id])
+
+  views AnnouncementView[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("announcements")
 }
@@ -596,45 +652,43 @@ model AnnouncementView {
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   userId         String
   user           Member       @relation(fields: [userId], references: [id])
-  
-  viewedAt       DateTime     @default(now())
+
+  viewedAt DateTime @default(now())
 
   @@unique([announcementId, userId])
   @@map("announcement_views")
 }
 
 // ============ SECURITY ============
-// (Keep all security models as they are)
-
 model BlockedIP {
-  id         String   @id @default(cuid())
-  ipAddress  String   @unique
-  reason     String?
+  id          String  @id @default(cuid())
+  ipAddress   String  @unique
+  reason      String?
   blockedById String?
-  blockedBy  Member?  @relation("BlockedBy", fields: [blockedById], references: [id])
-  
-  expiresAt  DateTime?
-  isActive   Boolean  @default(true)
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  blockedBy   Member? @relation("BlockedBy", fields: [blockedById], references: [id])
+
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("blocked_ips")
 }
 
 model LoginAttempt {
-  id         String   @id @default(cuid())
-  email      String
-  ipAddress  String?
-  userAgent  String?
-  
-  success    Boolean
+  id        String  @id @default(cuid())
+  email     String
+  ipAddress String?
+  userAgent String?
+
+  success       Boolean
   failureReason String?
-  
-  userId     String?
-  user       Member?  @relation(fields: [userId], references: [id])
-  
-  createdAt  DateTime @default(now())
+
+  userId String?
+  user   Member? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
 
   @@index([email])
   @@index([ipAddress])
@@ -643,20 +697,20 @@ model LoginAttempt {
 }
 
 model UserSession {
-  id         String   @id @default(cuid())
-  userId     String
-  user       Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  token      String   @unique
-  ipAddress  String?
-  userAgent  String?
-  
+  id     String @id @default(cuid())
+  userId String
+  user   Member @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String  @unique
+  ipAddress String?
+  userAgent String?
+
   lastActive DateTime @default(now())
   expiresAt  DateTime
   isRevoked  Boolean  @default(false)
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([token])
@@ -665,69 +719,65 @@ model UserSession {
 }
 
 // ============ BACKUP ============
-// (Keep backup models as they are)
-
 model Backup {
-  id          String   @id @default(cuid())
-  filename    String
-  size        Int
-  type        String   @default("manual")
-  status      String   @default("completed")
-  
+  id       String @id @default(cuid())
+  filename String
+  size     Int
+  type     String @default("manual")
+  status   String @default("completed")
+
   createdById String?
-  createdBy   Member?  @relation("BackupCreatedBy", fields: [createdById], references: [id])
-  
-  metadata    String?
-  
-  createdAt   DateTime @default(now())
+  createdBy   Member? @relation("BackupCreatedBy", fields: [createdById], references: [id])
+
+  metadata String?
+
+  createdAt DateTime @default(now())
 
   @@map("backups")
 }
 
 // ============ BIBLE ============
-// (Keep all Bible models as they are)
-
 model BibleVersion {
-  id             String   @id @default(cuid())
-  code           String   @unique
-  name           String
-  language       String   @default("en")
-  isActive       Boolean  @default(true)
-  
-  verses         BibleVerse[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
+  id       String  @id @default(cuid())
+  code     String  @unique
+  name     String
+  language String  @default("en")
+  isActive Boolean @default(true)
+
+  verses BibleVerse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("bible_versions")
 }
 
 model BibleVerse {
-  id             String   @id @default(cuid())
-  
-  bibleId        String
-  versionId      String
-  version        BibleVersion @relation(fields: [versionId], references: [id])
-  
-  reference      String
-  book           String
-  chapter        Int
-  verse          Int
-  text           String
-  
-  verseEnd       Int?
-  isRange        Boolean  @default(false)
-  
-  searchVector   String?
-  
-  sharedVerses   SharedVerse[]
-  likes          VerseLike[]
-  bookmarks      VerseBookmark[]
-  comments       VerseComment[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
+  id String @id @default(cuid())
+
+  bibleId   String
+  versionId String
+  version   BibleVersion @relation(fields: [versionId], references: [id])
+
+  reference String
+  book      String
+  chapter   Int
+  verse     Int
+  text      String
+
+  verseEnd Int?
+  isRange  Boolean @default(false)
+
+  searchVector String?
+
+  sharedVerses SharedVerse[]
+  likes        VerseLike[]
+  bookmarks    VerseBookmark[]
+  comments     VerseComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([versionId, book, chapter, verse])
   @@index([book, chapter])
   @@index([reference])
@@ -735,25 +785,25 @@ model BibleVerse {
 }
 
 model SharedVerse {
-  id             String   @id @default(cuid())
-  
-  verseId        String
-  verse          BibleVerse @relation(fields: [verseId], references: [id])
-  userId         String
-  user           Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  comment        String?  
-  scheduledFor   DateTime? @unique
-  status         String   @default("pending") // 'pending', 'approved', 'scheduled', 'published', 'rejected'
-  
-  reviewedById   String?
-  reviewedBy     Member?  @relation("ReviewedVerses", fields: [reviewedById], references: [id])
-  reviewedAt     DateTime?
-  reviewNotes    String?  
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
+  id String @id @default(cuid())
+
+  verseId String
+  verse   BibleVerse @relation(fields: [verseId], references: [id])
+  userId  String
+  user    Member     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  comment      String?
+  scheduledFor DateTime? @unique
+  status       String    @default("pending")
+
+  reviewedById String?
+  reviewedBy   Member?   @relation("ReviewedVerses", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([verseId, userId])
   @@index([status])
   @@index([scheduledFor])
@@ -761,12 +811,12 @@ model SharedVerse {
 }
 
 model VerseLike {
-  id        String   @id @default(cuid())
-  verseId   String
-  verse     BibleVerse @relation(fields: [verseId], references: [id], onDelete: Cascade)
-  userId    String
-  user      Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id      String     @id @default(cuid())
+  verseId String
+  verse   BibleVerse @relation(fields: [verseId], references: [id], onDelete: Cascade)
+  userId  String
+  user    Member     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   @@unique([verseId, userId])
@@ -774,12 +824,12 @@ model VerseLike {
 }
 
 model VerseBookmark {
-  id        String   @id @default(cuid())
-  verseId   String
-  verse     BibleVerse @relation(fields: [verseId], references: [id], onDelete: Cascade)
-  userId    String
-  user      Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id      String     @id @default(cuid())
+  verseId String
+  verse   BibleVerse @relation(fields: [verseId], references: [id], onDelete: Cascade)
+  userId  String
+  user    Member     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   @@unique([verseId, userId])
@@ -787,13 +837,13 @@ model VerseBookmark {
 }
 
 model VerseComment {
-  id        String   @id @default(cuid())
-  verseId   String
-  verse     BibleVerse @relation(fields: [verseId], references: [id], onDelete: Cascade)
-  userId    String
-  user      Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   String
-  
+  id      String     @id @default(cuid())
+  verseId String
+  verse   BibleVerse @relation(fields: [verseId], references: [id], onDelete: Cascade)
+  userId  String
+  user    Member     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content String
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -801,24 +851,22 @@ model VerseComment {
 }
 
 // ============ NOTIFICATIONS ============
-// (Keep all notification models as they are)
-
 model Notification {
-  id        String   @id @default(cuid())
-  type      String
-  title     String
-  message   String
-  data      String?
-  
-  userId    String
-  user      Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  isRead    Boolean  @default(false)
+  id      String  @id @default(cuid())
+  type    String
+  title   String
+  message String
+  data    String?
+
+  userId String
+  user   Member @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isRead     Boolean @default(false)
   isArchived Boolean @default(false)
-  
-  createdAt DateTime @default(now())
+
+  createdAt DateTime  @default(now())
   readAt    DateTime?
-  
+
   @@index([userId])
   @@index([createdAt])
   @@index([isRead])
@@ -826,26 +874,37 @@ model Notification {
 }
 
 model NotificationPreference {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   Member @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailEnabled Boolean @default(true)
+  inAppEnabled Boolean @default(true)
+
+  // Updated to focus on discussions and community
+  discussionReplies Boolean @default(true)
+  discussionUpvotes Boolean @default(true)
+  discussionMentions Boolean @default(true)
   
-  emailEnabled     Boolean @default(true)
-  inAppEnabled     Boolean @default(true)
-  
-  groupMessages    Boolean @default(true)  // 👈 UPDATED
-  prayerResponses  Boolean @default(true)
-  versePublished   Boolean @default(true)
-  groupInvites     Boolean @default(true)
-  announcements    Boolean @default(true)
-  
+  prayerResponses Boolean @default(true)
+  versePublished  Boolean @default(true)
+  groupInvites    Boolean @default(true)
+  announcements   Boolean @default(true)
+
+  communityPosts     Boolean @default(true)
+  communityResponses Boolean @default(true)
+  postMentions       Boolean @default(true)
+
+  digestFrequency String    @default("daily")
+  lastDigestSent  DateTime?
+
   quietHoursEnabled Boolean @default(false)
-  quietHoursStart  Int?
-  quietHoursEnd    Int?
-  
+  quietHoursStart   Int?
+  quietHoursEnd     Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([userId])
   @@map("notification_preferences")
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAnnouncements } from '../../../hooks/useAnnouncements';
-import { ANNOUNCEMENT_TYPES } from '../../../utils/constants';
+import { ANNOUNCEMENT_TYPES } from '../../../constants/constants';
 
 const AnnouncementBanner = ({ onView }) => {
   const { activeAnnouncements, markAsViewed, loading } = useAnnouncements({ 

@@ -1,11 +1,11 @@
 // src/modules/moderation/dto/moderation-query.dto.ts
-import { IsOptional, IsString, IsIn, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString, IsIn, IsInt, Min, Max, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ModerationQueryDto {
   @IsOptional()
   @IsString()
-  @IsIn(['prayerRequest', 'testimony', 'groupDiscussion', 'user'])
+  @IsIn(['prayerRequest', 'testimony', 'groupDiscussion', 'groupMessage', 'communityPost', 'user'])
   type?: string;
 
   @IsOptional()
@@ -19,18 +19,20 @@ export class ModerationQueryDto {
   severity?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Type(() => Number)
-  page?: number;
+  page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Type(() => Number)
-  limit?: number;
+  @Max(100)
+  limit?: number = 20;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200, { message: 'Search term cannot exceed 200 characters' })
   search?: string;
 }

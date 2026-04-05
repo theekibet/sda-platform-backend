@@ -8,38 +8,17 @@ const Layout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div style={styles.layout}>
+    <div className="flex flex-col min-h-screen">
       <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
-      
-      <div style={styles.mainContainer}>
+      <div className="flex flex-1">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-        
-        <main style={styles.mainContent}>
+        <main className="flex-1 p-5 pt-14 md:pt-16 bg-gray-50">
           {children}
         </main>
       </div>
-      
       <Footer />
     </div>
   );
-};
-
-const styles = {
-  layout: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  mainContainer: {
-    display: 'flex',
-    flex: 1,
-  },
-  mainContent: {
-    flex: 1,
-    padding: '20px',
-    backgroundColor: '#f5f7fa',
-    minHeight: 'calc(100vh - 70px)', // Subtract navbar height
-  },
 };
 
 export default Layout;

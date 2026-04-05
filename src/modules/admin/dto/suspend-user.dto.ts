@@ -1,5 +1,14 @@
+import { IsBoolean, IsOptional, IsString, IsDateString } from 'class-validator';
+
 export class SuspendUserDto {
-    suspend: boolean;
-    until?: string; // ISO date string
-    reason?: string;
-  }
+  @IsBoolean()
+  suspend: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  until?: string; // ISO date string
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

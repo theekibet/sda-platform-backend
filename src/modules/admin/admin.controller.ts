@@ -1,3 +1,4 @@
+// src/modules/admin/admin.controller.ts
 import { 
   Controller, Get, Post, Put, Delete, Body, Param, Query, 
   UseGuards, ParseIntPipe, DefaultValuePipe, Res, HttpStatus
@@ -6,6 +7,7 @@ import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
+import { SuperAdminGuard } from '../../common/guards/super-admin.guard'; // ✅ NEW
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserQueryDto } from './dto/user-query.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
@@ -32,7 +34,7 @@ import { BackupDto } from '../maintenance/dto/backup.dto';
 interface BulkActionResult {
   userId: string;
   action: string;
-  error?: string;  // Make it optional to match the service
+  error?: string;
 }
 
 interface BulkActionResponse {
@@ -56,7 +58,7 @@ interface EngagementMetricsResponse {
 }
 
 @Controller('admin')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, AdminGuard) // All routes require at minimum: logged in + isAdmin
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -88,7 +90,9 @@ export class AdminController {
     return this.adminService.suspendUser(admin.id, userId, dto);
   }
 
+  // ✅ SUPER ADMIN ONLY: prevents elevated admins from touching admin status
   @Post('users/:userId/toggle-admin')
+  @UseGuards(SuperAdminGuard)
   toggleAdmin(
     @CurrentUser() admin: any,
     @Param('userId') userId: string,
@@ -96,7 +100,9 @@ export class AdminController {
     return this.adminService.toggleAdmin(admin.id, userId);
   }
 
+  // ✅ SUPER ADMIN ONLY: only super admin can reset other users' passwords
   @Post('users/reset-password')
+  @UseGuards(SuperAdminGuard)
   adminResetPassword(
     @CurrentUser() admin: any,
     @Body() dto: AdminResetPasswordDto,
@@ -115,7 +121,9 @@ export class AdminController {
 
   // ============ PHASE 1 ENDPOINTS ============
 
+  // ✅ SUPER ADMIN ONLY: prevents elevated admins from deleting accounts
   @Delete('users/:userId')
+  @UseGuards(SuperAdminGuard)
   deleteUser(
     @CurrentUser() admin: any,
     @Param('userId') userId: string,
@@ -123,7 +131,9 @@ export class AdminController {
     return this.adminService.deleteUser(admin.id, userId);
   }
 
+  // ✅ SUPER ADMIN ONLY: bulk actions are too powerful for elevated admins
   @Post('users/bulk')
+  @UseGuards(SuperAdminGuard)
   bulkUserAction(
     @CurrentUser() admin: any,
     @Body() dto: BulkUserActionDto,
@@ -137,10 +147,7 @@ export class AdminController {
     @Res() res: Response,
   ) {
     const users = await this.adminService.exportUsers(query);
-    
-    // Convert to CSV
     const csv = this.convertToCSV(users);
-    
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=users-export.csv');
     res.status(HttpStatus.OK).send(csv);
@@ -152,7 +159,6 @@ export class AdminController {
     @Res() res: Response,
   ) {
     const users = await this.adminService.exportUsers(query);
-    
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename=users-export.json');
     res.status(HttpStatus.OK).json(users);
@@ -237,7 +243,9 @@ export class AdminController {
     return this.adminService.getSetting(key);
   }
 
+  // ✅ SUPER ADMIN ONLY: system settings changes are too sensitive
   @Put('settings/:key')
+  @UseGuards(SuperAdminGuard)
   updateSetting(
     @Param('key') key: string,
     @Body() dto: UpdateSettingDto,
@@ -255,7 +263,9 @@ export class AdminController {
     return this.adminService.getFeatureFlag(name);
   }
 
+  // ✅ SUPER ADMIN ONLY: feature flag changes affect the whole system
   @Put('features/:name')
+  @UseGuards(SuperAdminGuard)
   updateFeatureFlag(
     @Param('name') name: string,
     @Body() dto: FeatureFlagDto,
@@ -319,12 +329,16 @@ export class AdminController {
     return this.adminService.getBlockedIPs(page, limit);
   }
 
+  // ✅ SUPER ADMIN ONLY: blocking/unblocking IPs is a critical security action
   @Post('security/block-ip')
+  @UseGuards(SuperAdminGuard)
   blockIP(@Body() dto: BlockIpDto) {
     return this.adminService.blockIP(dto);
   }
 
+  // ✅ SUPER ADMIN ONLY
   @Delete('security/block-ip/:ip')
+  @UseGuards(SuperAdminGuard)
   unblockIP(@Param('ip') ip: string) {
     return this.adminService.unblockIP(ip);
   }
@@ -334,7 +348,9 @@ export class AdminController {
     return this.adminService.getRateLimits();
   }
 
+  // ✅ SUPER ADMIN ONLY: rate limit changes affect all users
   @Post('security/rate-limits')
+  @UseGuards(SuperAdminGuard)
   updateRateLimit(@Body() dto: RateLimitDto) {
     return this.adminService.updateRateLimit(dto);
   }
@@ -368,7 +384,9 @@ export class AdminController {
 
   // ============ PHASE 8 - MAINTENANCE ENDPOINTS ============
 
+  // ✅ SUPER ADMIN ONLY: backup/restore are critical system operations
   @Post('maintenance/backup/create')
+  @UseGuards(SuperAdminGuard)
   createBackup(@Body() dto: BackupDto) {
     return this.adminService.createBackup(dto);
   }
@@ -384,18 +402,21 @@ export class AdminController {
     @Res() res: Response,
   ) {
     const backup = await this.adminService.getBackupFile(id);
-    
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename=${backup.filename}`);
     res.status(HttpStatus.OK).send(backup.data);
   }
 
+  // ✅ SUPER ADMIN ONLY: restore can overwrite all production data
   @Post('maintenance/backup/restore/:id')
+  @UseGuards(SuperAdminGuard)
   restoreBackup(@Param('id') id: string) {
     return this.adminService.restoreBackup(id);
   }
 
+  // ✅ SUPER ADMIN ONLY
   @Delete('maintenance/backup/:id')
+  @UseGuards(SuperAdminGuard)
   deleteBackup(@Param('id') id: string) {
     return this.adminService.deleteBackup(id);
   }
@@ -405,7 +426,9 @@ export class AdminController {
     return this.adminService.getSystemHealth();
   }
 
+  // ✅ SUPER ADMIN ONLY
   @Post('maintenance/cache/clear')
+  @UseGuards(SuperAdminGuard)
   clearCache() {
     return this.adminService.clearCache();
   }
@@ -415,7 +438,9 @@ export class AdminController {
     return this.adminService.getDatabaseStats();
   }
 
+  // ✅ SUPER ADMIN ONLY
   @Post('maintenance/database/optimize')
+  @UseGuards(SuperAdminGuard)
   optimizeDatabase() {
     return this.adminService.optimizeDatabase();
   }
@@ -423,14 +448,12 @@ export class AdminController {
   // Helper method for CSV conversion
   private convertToCSV(users: any[]): string {
     if (users.length === 0) return '';
-    
     const headers = Object.keys(users[0]).join(',');
-    const rows = users.map(user => 
-      Object.values(user).map(value => 
+    const rows = users.map(user =>
+      Object.values(user).map(value =>
         typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
       ).join(',')
     );
-    
     return [headers, ...rows].join('\n');
   }
 }

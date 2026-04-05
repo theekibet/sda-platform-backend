@@ -4,11 +4,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useVerseInteractions } from '../../hooks/useVerseInteractions';
 import VerseCard from './VerseCard';
 
-/**
- * Interactive Verse Card with social features (likes, comments, bookmarks)
- * Reusable component that can be used anywhere you want to display a verse
- * with full interaction capabilities
- */
 const InteractiveVerseCard = ({ 
   verse, 
   className = '',
@@ -20,14 +15,9 @@ const InteractiveVerseCard = ({
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  // Get verse ID safely from different possible data structures
-  const getVerseId = () => {
-    return verse?.verse?.id || verse?.id;
-  };
-
+  const getVerseId = () => verse?.verse?.id || verse?.id;
   const verseId = getVerseId();
 
-  // Use the custom hook for all interaction logic
   const {
     liked,
     bookmarked,
@@ -40,21 +30,16 @@ const InteractiveVerseCard = ({
     handleAddComment,
   } = useVerseInteractions(verseId);
 
-  // Handle comment submission
   const onSubmitComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
 
     setSubmittingComment(true);
     const success = await handleAddComment(newComment);
-    
-    if (success) {
-      setNewComment('');
-    }
+    if (success) setNewComment('');
     setSubmittingComment(false);
   };
 
-  // Get verse data for the "Read in context" button
   const getVerseData = () => {
     const verseData = verse?.verse || verse;
     return {
@@ -66,55 +51,45 @@ const InteractiveVerseCard = ({
   if (!verse) return null;
 
   return (
-    <div style={styles.container} className={className}>
-      {/* Verse Display */}
+    <div className={`bg-white rounded-xl shadow-md ${className}`}>
       <VerseCard verse={verse} showSharedBy={showSharedBy} />
 
       {/* Interaction Bar */}
-      <div style={styles.interactionBar}>
-        <button 
-          onClick={handleLike} 
-          style={{
-            ...styles.interactionButton, 
-            color: liked ? '#e74c3c' : '#666'
-          }}
-          title={liked ? "Unlike this verse" : "Like this verse"}
+      <div className="flex justify-around items-center p-4 border-t border-gray-200 gap-2 flex-wrap">
+        <button
+          onClick={handleLike}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all ${liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
           disabled={loading}
+          title={liked ? "Unlike this verse" : "Like this verse"}
         >
-          {liked ? '❤️' : '🤍'} 
-          {likeCount > 0 && <span style={styles.count}>{likeCount}</span>}
+          {liked ? '❤️' : '🤍'}
+          {likeCount > 0 && <span className="text-sm font-medium">{likeCount}</span>}
         </button>
-        
-        <button 
-          onClick={() => setShowComments(!showComments)} 
-          style={{
-            ...styles.interactionButton,
-            color: showComments ? '#667eea' : '#666'
-          }}
+
+        <button
+          onClick={() => setShowComments(!showComments)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all ${showComments ? 'text-primary-500' : 'text-gray-500 hover:text-primary-500'}`}
           title="View comments"
         >
-          💬 {comments.length > 0 && <span style={styles.count}>{comments.length}</span>}
+          💬 {comments.length > 0 && <span className="text-sm font-medium">{comments.length}</span>}
         </button>
-        
-        <button 
-          onClick={handleBookmark} 
-          style={{
-            ...styles.interactionButton, 
-            color: bookmarked ? '#f39c12' : '#666'
-          }}
-          title={bookmarked ? "Remove bookmark" : "Bookmark this verse"}
+
+        <button
+          onClick={handleBookmark}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all ${bookmarked ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'}`}
           disabled={loading}
+          title={bookmarked ? "Remove bookmark" : "Bookmark this verse"}
         >
           {bookmarked ? '🔖' : '📑'}
         </button>
-        
+
         {showReadButton && getVerseData().book && getVerseData().chapter && (
-          <button 
+          <button
             onClick={() => {
               const { book, chapter } = getVerseData();
               window.open(`/bible/read/${book}/${chapter}`, '_blank');
             }}
-            style={styles.interactionButton}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-full text-gray-500 hover:text-primary-500 transition-all"
             title="Read in context"
           >
             📖 Read
@@ -122,80 +97,75 @@ const InteractiveVerseCard = ({
         )}
       </div>
 
-      {/* Error Display */}
+      {/* Error */}
       {error && (
-        <div style={styles.errorMessage}>
+        <div className="p-3 bg-red-50 text-red-700 text-sm border-t border-red-100">
           {error}
         </div>
       )}
 
       {/* Comments Section */}
       {showComments && (
-        <div style={styles.commentsSection}>
-          <h3 style={styles.commentsTitle}>
+        <div className="p-5 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
             💬 Comments {comments.length > 0 && `(${comments.length})`}
           </h3>
-          
+
           {/* Add Comment Form */}
           {user ? (
-            <form onSubmit={onSubmitComment} style={styles.commentForm}>
+            <form onSubmit={onSubmitComment} className="mb-5 bg-white p-4 rounded-lg shadow-sm">
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Share your thoughts about this verse..."
-                style={styles.commentInput}
-                rows="3"
+                rows={3}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
                 disabled={submittingComment}
               />
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={submittingComment || !newComment.trim()}
-                style={{
-                  ...styles.commentSubmit,
-                  opacity: submittingComment || !newComment.trim() ? 0.6 : 1,
-                  cursor: submittingComment || !newComment.trim() ? 'not-allowed' : 'pointer',
-                }}
+                className="mt-2 float-right px-4 py-2 bg-primary-500 text-white rounded-md font-semibold hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
                 {submittingComment ? 'Posting...' : 'Post Comment'}
               </button>
+              <div className="clear-both" />
             </form>
           ) : (
-            <div style={styles.loginPrompt}>
+            <div className="text-center p-5 bg-white rounded-lg shadow-sm mb-5">
               <p>
-                <a href="/login" style={styles.loginLink}>Login</a> to join the discussion
+                <a href="/login" className="text-primary-500 font-semibold hover:underline">Login</a> to join the discussion
               </p>
             </div>
           )}
 
           {/* Comments List */}
-          <div style={styles.commentsList}>
+          <div className="space-y-2">
             {comments.length === 0 ? (
-              <p style={styles.noComments}>
-                {user 
-                  ? "No comments yet. Be the first to share your thoughts!" 
-                  : "No comments yet."}
+              <p className="text-center text-gray-400 py-8">
+                {user ? "No comments yet. Be the first to share your thoughts!" : "No comments yet."}
               </p>
             ) : (
               comments.map(comment => (
-                <div key={comment.id} style={styles.commentItem}>
-                  <div style={styles.commentHeader}>
-                    <div style={styles.commentAuthor}>
-                      <span style={styles.authorAvatar}>
-                        {(comment.user?.name || 'A')[0].toUpperCase()}
-                      </span>
-                      <strong>{comment.user?.name || 'Anonymous'}</strong>
+                <div key={comment.id} className="bg-white p-4 rounded-lg shadow-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-primary-500 text-white flex items-center justify-center text-xs font-bold uppercase">
+                        {(comment.user?.name || 'A')[0]}
+                      </div>
+                      <strong className="text-gray-800">{comment.user?.name || 'Anonymous'}</strong>
                     </div>
-                    <span style={styles.commentTime}>
+                    <span className="text-xs text-gray-400">
                       {new Date(comment.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
-                        year: new Date(comment.createdAt).getFullYear() !== new Date().getFullYear() 
-                          ? 'numeric' 
-                          : undefined
+                        year: new Date(comment.createdAt).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
                       })}
                     </span>
                   </div>
-                  <p style={styles.commentContent}>{comment.content}</p>
+                  <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    {comment.content}
+                  </p>
                 </div>
               ))
             )}
@@ -204,159 +174,6 @@ const InteractiveVerseCard = ({
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  interactionBar: {
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    padding: '15px 20px',
-    borderTop: '1px solid #eaeaea',
-    gap: '8px',
-    flexWrap: 'wrap',
-  },
-  interactionButton: {
-    background: 'none',
-    border: 'none',
-    fontSize: '16px',
-    color: '#666',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '8px 12px',
-    borderRadius: '20px',
-    transition: 'all 0.2s',
-    fontWeight: '500',
-  },
-  count: {
-    fontSize: '14px',
-    fontWeight: '600',
-    marginLeft: '2px',
-  },
-  errorMessage: {
-    padding: '12px 20px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    fontSize: '14px',
-    borderTop: '1px solid #fdd',
-  },
-  commentsSection: {
-    padding: '20px',
-    borderTop: '1px solid #eaeaea',
-    backgroundColor: '#fafafa',
-    borderBottomLeftRadius: '12px',
-    borderBottomRightRadius: '12px',
-  },
-  commentsTitle: {
-    fontSize: '18px',
-    color: '#333',
-    marginBottom: '15px',
-    fontWeight: '600',
-  },
-  commentForm: {
-    marginBottom: '20px',
-    backgroundColor: 'white',
-    padding: '15px',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  },
-  commentInput: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '14px',
-    fontFamily: 'inherit',
-    marginBottom: '10px',
-    resize: 'vertical',
-    lineHeight: '1.5',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  commentSubmit: {
-    padding: '10px 20px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-    float: 'right',
-    transition: 'background-color 0.2s',
-  },
-  loginPrompt: {
-    textAlign: 'center',
-    padding: '20px',
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  },
-  loginLink: {
-    color: '#667eea',
-    textDecoration: 'none',
-    fontWeight: '600',
-  },
-  commentsList: {
-    clear: 'both',
-  },
-  noComments: {
-    textAlign: 'center',
-    color: '#999',
-    padding: '30px 20px',
-    fontSize: '14px',
-    fontStyle: 'italic',
-  },
-  commentItem: {
-    padding: '15px',
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    marginBottom: '10px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-  },
-  commentHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px',
-  },
-  commentAuthor: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  authorAvatar: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    backgroundColor: '#667eea',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '12px',
-    fontWeight: '600',
-  },
-  commentTime: {
-    fontSize: '12px',
-    color: '#999',
-  },
-  commentContent: {
-    fontSize: '14px',
-    color: '#333',
-    lineHeight: '1.6',
-    margin: 0,
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-  },
 };
 
 export default InteractiveVerseCard;

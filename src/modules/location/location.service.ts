@@ -6,36 +6,15 @@ import { UpdateLocationDto } from './dto/update-location.dto';
 export class LocationService {
   constructor(private prisma: PrismaService) {}
 
+  // Simplified: Update user location (no privacy settings)
   async updateUserLocation(userId: string, locationData: UpdateLocationDto) {
-    // If user disables location, clear everything
-    if (locationData.showLocation === false) {
-      return this.prisma.member.update({
-        where: { id: userId },
-        data: {
-          locationName: null,
-          latitude: null,
-          longitude: null,
-          locationPrivacy: 'none',
-          locationLastUpdated: new Date(),
-        },
-        select: {
-          id: true,
-          name: true,
-          locationName: true,
-          locationPrivacy: true,
-          locationLastUpdated: true,
-        },
-      });
-    }
-
     // Update with provided data
     return this.prisma.member.update({
       where: { id: userId },
       data: {
         locationName: locationData.locationName,
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
-        locationPrivacy: locationData.locationPrivacy ?? 'city',
+        latitude: locationData.latitude ?? null,
+        longitude: locationData.longitude ?? null,
         locationLastUpdated: new Date(),
       },
       select: {
@@ -44,39 +23,24 @@ export class LocationService {
         locationName: true,
         latitude: true,
         longitude: true,
-        locationPrivacy: true,
-        locationLastUpdated: true,
-      },
-    });
-  }
-
-  async updateLocationConsent(userId: string, consentData: { enableLocation: boolean; privacyLevel?: string }) {
-    const { enableLocation, privacyLevel } = consentData;
-
-    return this.prisma.member.update({
-      where: { id: userId },
-      data: {
-        locationPrivacy: privacyLevel || (enableLocation ? 'city' : 'none'),
-        locationLastUpdated: new Date(),
-      },
-      select: {
-        id: true,
-        locationPrivacy: true,
         locationLastUpdated: true,
       },
     });
   }
 
   async getLocationStats() {
-    const total = await this.prisma.member.count({
+    const totalWithLocation = await this.prisma.member.count({
       where: { 
-        latitude: { not: null },
-        locationPrivacy: { not: 'none' }
+        locationName: { not: null }
       }
     });
 
+    const totalMembers = await this.prisma.member.count();
+
     return {
-      totalMembersWithLocation: total,
+      totalMembers,
+      withLocation: totalWithLocation,
+      percentage: totalMembers > 0 ? Math.round((totalWithLocation / totalMembers) * 100) : 0,
       lastUpdated: new Date(),
     };
   }

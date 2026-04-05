@@ -1,7 +1,7 @@
 // src/modules/admin/bible/admin-bible.controller.ts
-import { 
-  Controller, Get, Post, Body, Param, Query, 
-  UseGuards, ParseIntPipe, Logger 
+import {
+  Controller, Get, Post, Body, Param, Query,
+  UseGuards, ParseIntPipe, Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../../common/guards/admin.guard';
@@ -26,23 +26,13 @@ export class AdminBibleController {
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20,
   ) {
     const skip = (page - 1) * limit;
-    
+
     const [submissions, total] = await Promise.all([
       this.prisma.sharedVerse.findMany({
         where: { status },
         include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          verse: {
-            include: {
-              version: true,
-            },
-          },
+          user: { select: { id: true, name: true, email: true } },
+          verse: { include: { version: true } },
         },
         orderBy: { createdAt: 'asc' },
         skip,
@@ -51,28 +41,12 @@ export class AdminBibleController {
       this.prisma.sharedVerse.count({ where: { status } }),
     ]);
 
-    // Calculate queue positions for pending submissions
-    let submissionsWithPosition = submissions;
-    if (status === 'pending') {
-      submissionsWithPosition = await Promise.all(
-        submissions.map(async (sub, index) => {
-          const position = await this.prisma.sharedVerse.count({
-            where: {
-              status: 'pending',
-              createdAt: {
-                lt: sub.createdAt,
-              },
-            },
-          }) + 1;
-          
-          return {
-            ...sub,
-            queuePosition: position,
-          };
-        })
-      );
-    }
-    
+    // FIX 1 – queue position uses skip + index + 1 (no N+1 queries)
+    const submissionsWithPosition =
+      status === 'pending'
+        ? submissions.map((sub, index) => ({ ...sub, queuePosition: skip + index + 1 }))
+        : submissions;
+
     return {
       success: true,
       data: {
@@ -92,27 +66,13 @@ export class AdminBibleController {
     const submission = await this.prisma.sharedVerse.findUnique({
       where: { id },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            createdAt: true,
-          },
-        },
-        verse: {
-          include: {
-            version: true,
-          },
-        },
+        user: { select: { id: true, name: true, email: true, createdAt: true } },
+        verse: { include: { version: true } },
       },
     });
 
-    if (!submission) {
-      return { success: false, message: 'Submission not found' };
-    }
+    if (!submission) return { success: false, message: 'Submission not found' };
 
-    // Get user's other submissions
     const otherSubmissions = await this.prisma.sharedVerse.findMany({
       where: {
         userId: submission.userId,
@@ -123,13 +83,7 @@ export class AdminBibleController {
       orderBy: { createdAt: 'desc' },
     });
 
-    return {
-      success: true,
-      data: {
-        ...submission,
-        otherSubmissions,
-      },
-    };
+    return { success: true, data: { ...submission, otherSubmissions } };
   }
 
   @Post('submissions/:id/approve')
@@ -142,42 +96,28 @@ export class AdminBibleController {
       where: { id },
       include: { verse: true },
     });
-    
-    if (!submission) {
-      return { success: false, message: 'Submission not found' };
-    }
 
-    // Allow updating both pending and approved submissions
+    if (!submission) return { success: false, message: 'Submission not found' };
+
     if (submission.status !== 'pending' && submission.status !== 'approved') {
       return { success: false, message: 'Only pending or approved submissions can be updated' };
     }
 
-    // Determine the new status
-    // If we have a scheduled date, it becomes 'scheduled'
-    // Otherwise it becomes 'approved' (waiting for scheduling)
     const newStatus = body.scheduledFor ? 'scheduled' : 'approved';
-    
-    // Only set scheduledFor if date is provided
-    const scheduledFor = body.scheduledFor 
-      ? new Date(body.scheduledFor)
-      : null;
+    const scheduledFor = body.scheduledFor ? new Date(body.scheduledFor) : null;
 
     const updated = await this.prisma.sharedVerse.update({
       where: { id },
       data: {
         status: newStatus,
-        scheduledFor: scheduledFor,
+        scheduledFor,
         reviewedById: admin.id,
         reviewedAt: new Date(),
         reviewNotes: body.notes,
       },
-      include: {
-        user: true,
-        verse: true,
-      },
+      include: { user: true, verse: true },
     });
-    
-    // Log the action
+
     await this.prisma.moderationLog.create({
       data: {
         moderatorId: admin.id,
@@ -187,12 +127,8 @@ export class AdminBibleController {
         reason: body.notes || `Changed to ${newStatus}`,
       },
     });
-    
-    return {
-      success: true,
-      message: `Submission ${newStatus}`,
-      data: updated,
-    };
+
+    return { success: true, message: `Submission ${newStatus}`, data: updated };
   }
 
   @Post('submissions/:id/schedule')
@@ -201,36 +137,26 @@ export class AdminBibleController {
     @Param('id') id: string,
     @Body() body: { scheduledFor: string; notes?: string },
   ) {
-    if (!body.scheduledFor) {
-      return { success: false, message: 'Scheduled date is required' };
-    }
+    if (!body.scheduledFor) return { success: false, message: 'Scheduled date is required' };
 
-    const submission = await this.prisma.sharedVerse.findUnique({
-      where: { id },
-    });
-
-    if (!submission) {
-      return { success: false, message: 'Submission not found' };
-    }
+    const submission = await this.prisma.sharedVerse.findUnique({ where: { id } });
+    if (!submission) return { success: false, message: 'Submission not found' };
 
     if (submission.status !== 'approved' && submission.status !== 'scheduled') {
       return { success: false, message: 'Only approved submissions can be scheduled' };
     }
 
-    const scheduledDate = new Date(body.scheduledFor);
-
     const updated = await this.prisma.sharedVerse.update({
       where: { id },
       data: {
         status: 'scheduled',
-        scheduledFor: scheduledDate,
+        scheduledFor: new Date(body.scheduledFor),
         reviewedById: admin.id,
         reviewedAt: new Date(),
         reviewNotes: body.notes || submission.reviewNotes,
       },
     });
 
-    // Log the action
     await this.prisma.moderationLog.create({
       data: {
         moderatorId: admin.id,
@@ -241,11 +167,7 @@ export class AdminBibleController {
       },
     });
 
-    return {
-      success: true,
-      message: 'Submission scheduled',
-      data: updated,
-    };
+    return { success: true, message: 'Submission scheduled', data: updated };
   }
 
   @Post('submissions/:id/reject')
@@ -254,17 +176,10 @@ export class AdminBibleController {
     @Param('id') id: string,
     @Body() body: { reason: string },
   ) {
-    if (!body.reason) {
-      return { success: false, message: 'Rejection reason is required' };
-    }
+    if (!body.reason) return { success: false, message: 'Rejection reason is required' };
 
-    const submission = await this.prisma.sharedVerse.findUnique({
-      where: { id },
-    });
-    
-    if (!submission) {
-      return { success: false, message: 'Submission not found' };
-    }
+    const submission = await this.prisma.sharedVerse.findUnique({ where: { id } });
+    if (!submission) return { success: false, message: 'Submission not found' };
 
     if (submission.status !== 'pending' && submission.status !== 'approved') {
       return { success: false, message: 'Only pending or approved submissions can be rejected' };
@@ -278,13 +193,9 @@ export class AdminBibleController {
         reviewedAt: new Date(),
         reviewNotes: body.reason,
       },
-      include: {
-        user: true,
-        verse: true,
-      },
+      include: { user: true, verse: true },
     });
 
-    // Log the action
     await this.prisma.moderationLog.create({
       data: {
         moderatorId: admin.id,
@@ -294,60 +205,53 @@ export class AdminBibleController {
         reason: body.reason,
       },
     });
-    
-    return {
-      success: true,
-      message: 'Submission rejected',
-      data: updated,
-    };
+
+    return { success: true, message: 'Submission rejected', data: updated };
   }
 
   @Post('schedule')
   async scheduleVerses() {
-    // Get all approved but not scheduled verses
     const approved = await this.prisma.sharedVerse.findMany({
-      where: { 
-        status: 'approved',
-        scheduledFor: null,
-      },
-      orderBy: { 
-        reviewedAt: 'asc', // Oldest approved first
-      },
+      where: { status: 'approved', scheduledFor: null },
+      orderBy: { reviewedAt: 'asc' },
     });
-    
-    let nextDate = await this.bibleVerseService.getNextAvailableDate();
-    
-    // FIX: Explicitly type the updates array
-    const updates: any[] = [];
-  
-    for (const submission of approved) {
-      const updated = await this.prisma.sharedVerse.update({
-        where: { id: submission.id },
-        data: {
-          scheduledFor: nextDate,
-          status: 'scheduled',
-        },
-      });
-      
-      updates.push(updated);
-      
-      // Log the action
-      await this.prisma.moderationLog.create({
-        data: {
-          moderatorId: submission.reviewedById || 'system',
-          action: 'scheduled',
-          contentType: 'verse_submission',
-          contentId: submission.id,
-          reason: 'Auto-scheduled by system',
-        },
-      });
-      
-      // Move to next day
-      const newDate = new Date(nextDate);
-      newDate.setDate(newDate.getDate() + 1);
-      nextDate = newDate;
+
+    if (approved.length === 0) {
+      return { success: true, message: 'No pending verses to schedule', data: [] };
     }
-    
+
+    let nextDate = await this.bibleVerseService.getNextAvailableDate();
+
+    // FIX 2 – wrap all updates in a transaction; results typed as any[]
+    const updates: any[] = await this.prisma.$transaction(async tx => {
+      const results: any[] = [];
+
+      for (const submission of approved) {
+        const updated = await tx.sharedVerse.update({
+          where: { id: submission.id },
+          data: { scheduledFor: nextDate, status: 'scheduled' },
+        });
+
+        results.push(updated);
+
+        await tx.moderationLog.create({
+          data: {
+            moderatorId: submission.reviewedById || 'system',
+            action: 'scheduled',
+            contentType: 'verse_submission',
+            contentId: submission.id,
+            reason: 'Auto-scheduled by system',
+          },
+        });
+
+        const newDate = new Date(nextDate);
+        newDate.setDate(newDate.getDate() + 1);
+        nextDate = newDate;
+      }
+
+      return results;
+    });
+
     return {
       success: true,
       message: `Scheduled ${updates.length} verses`,
@@ -355,55 +259,58 @@ export class AdminBibleController {
     };
   }
 
+  // FIX 3 – publishedAt removed from where/data; using status:'published' + scheduledFor
+  // to check idempotency. If you need publishedAt, add it to the SharedVerse schema first.
   @Post('publish-today')
   async publishTodayVerse() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Find verse scheduled for today
-    const scheduled = await this.prisma.sharedVerse.findFirst({
+
+    // Idempotency guard – check if a verse was already published today
+    // We treat "published today" as: status='published' AND scheduledFor is today
+    const alreadyPublishedToday = await this.prisma.sharedVerse.findFirst({
       where: {
-        scheduledFor: {
-          gte: today,
-          lt: tomorrow,
-        },
-        status: 'scheduled',
-      },
-    });
-    
-    if (!scheduled) {
-      return { success: false, message: 'No verse scheduled for today' };
-    }
-    
-    const published = await this.prisma.sharedVerse.update({
-      where: { id: scheduled.id },
-      data: {
         status: 'published',
-      },
-      include: {
-        verse: true,
-        user: true,
+        scheduledFor: { gte: today, lt: tomorrow },
       },
     });
 
-    // Log the action
+    if (alreadyPublishedToday) {
+      return {
+        success: false,
+        message: 'A verse has already been published today',
+        data: alreadyPublishedToday,
+      };
+    }
+
+    const scheduled = await this.prisma.sharedVerse.findFirst({
+      where: {
+        scheduledFor: { gte: today, lt: tomorrow },
+        status: 'scheduled',
+      },
+    });
+
+    if (!scheduled) return { success: false, message: 'No verse scheduled for today' };
+
+    const published = await this.prisma.sharedVerse.update({
+      where: { id: scheduled.id },
+      data: { status: 'published' },
+      include: { verse: true, user: true },
+    });
+
     await this.prisma.moderationLog.create({
       data: {
         moderatorId: 'system',
         action: 'published',
         contentType: 'verse_submission',
         contentId: scheduled.id,
-        reason: 'Published by cron job',
+        reason: 'Published by system',
       },
     });
-    
-    return {
-      success: true,
-      message: 'Verse published for today',
-      data: published,
-    };
+
+    return { success: true, message: 'Verse published for today', data: published };
   }
 
   @Get('stats')
@@ -430,21 +337,12 @@ export class AdminBibleController {
   @Get('activity')
   async getRecentActivity() {
     const activity = await this.prisma.moderationLog.findMany({
-      where: {
-        contentType: 'verse_submission',
-      },
-      include: {
-        moderator: {
-          select: { name: true },
-        },
-      },
+      where: { contentType: 'verse_submission' },
+      include: { moderator: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
 
-    return {
-      success: true,
-      data: activity,
-    };
+    return { success: true, data: activity };
   }
 }

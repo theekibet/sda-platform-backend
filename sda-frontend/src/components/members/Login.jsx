@@ -3,304 +3,227 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import AuthLayout from '../../components/auth/AuthLayout';
+import AnimatedCharacter from '../../components/auth/AnimatedCharacter';
 
 function Login() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const { login } = useAuth();
+
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loginStatus, setLoginStatus] = useState(null);
-  const { login } = useAuth();
+  const [focusedField, setFocusedField] = useState(null);
+  const [characterMessage, setCharacterMessage] = useState(null);
 
   const handleChange = (e) => {
-    setFormData({...formData, [e.target.name]: e.target.value});
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setLoginStatus(null);
-    
+    setLoginStatus('thinking');
+    setCharacterMessage('Checking your credentials...');
+
     const result = await login(formData.email, formData.password);
-    
+
     if (result.success) {
       setLoginStatus('success');
-      setTimeout(() => navigate('/dashboard'), 500);
+      setCharacterMessage('Welcome back! 🎉');
+      setTimeout(() => navigate('/dashboard'), 2000);
     } else {
       setLoginStatus('error');
       setError(result.error || 'Login failed');
-      setTimeout(() => setLoginStatus(null), 3000);
+      setCharacterMessage('Oops! Something went wrong 😅');
+      setTimeout(() => {
+        setLoginStatus(null);
+        setCharacterMessage(null);
+      }, 3000);
     }
-    
+
     setLoading(false);
   };
 
+  const handleFocus = (fieldId) => {
+    setFocusedField(fieldId);
+    if (fieldId === 'email-field') {
+      setCharacterMessage("I'm watching! 👀");
+    } else if (fieldId === 'password-field') {
+      setCharacterMessage('Your secret is safe!');
+    }
+  };
+
+  const handleBlur = () => {
+    setFocusedField(null);
+    setTimeout(() => setCharacterMessage(null), 1000);
+  };
+
+  const handlePasswordToggle = () => {
+    setShowPassword((prev) => !prev);
+    if (!showPassword) {
+      setCharacterMessage("I won't peek! 🙈");
+    } else {
+      setCharacterMessage("All clear! 👁️");
+    }
+    setTimeout(() => {
+      if (!focusedField) setCharacterMessage(null);
+    }, 2000);
+  };
+
+  // Determine character mode
+  const characterMode = loginStatus === 'success' 
+    ? 'celebrating' 
+    : loginStatus === 'error' 
+    ? 'error' 
+    : loginStatus === 'thinking'
+    ? 'thinking'
+    : showPassword && focusedField === 'password-field'
+    ? 'hiding'
+    : 'watching';
+
+  const submitBg =
+    loginStatus === 'success'
+      ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+      : loginStatus === 'error'
+      ? 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600'
+      : 'bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600';
+
   return (
-    <AuthLayout 
-      title="Welcome Back! 👋" 
-      subtitle="Login to SDA Youth Connect"
-    >
+    <AuthLayout title="Welcome Back! 👋" subtitle="Login to SDA Youth Connect">
+      
+      {/* Animated Character */}
+      <AnimatedCharacter
+        mode={characterMode}
+        focusedField={focusedField}
+        message={characterMessage}
+      />
+
+      {/* Status banners */}
       {loginStatus === 'success' && (
-        <div style={styles.successMessage}>
-          ✅ Login successful! Redirecting...
+        <div className="flex items-center gap-2 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-200 rounded-xl px-4 py-3 mb-4 text-sm font-medium shadow-md animate-float">
+          <span className="text-lg">✅</span>
+          <span>Login successful! Redirecting...</span>
         </div>
       )}
-      
       {loginStatus === 'error' && (
-        <div style={styles.errorMessage}>
-          ❌ {error}
+        <div className="flex items-center gap-2 bg-gradient-to-r from-red-50 to-rose-50 text-red-600 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm font-medium shadow-md animate-wiggle">
+          <span className="text-lg">❌</span>
+          <span>{error}</span>
         </div>
       )}
-      
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Email</label>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Email */}
+        <div className="flex flex-col gap-1 transform transition-all duration-300 hover:scale-[1.02]">
+          <label className="text-sm font-medium text-gray-600" htmlFor="email-field">
+            Email
+          </label>
           <input
+            id="email-field"
             type="email"
             name="email"
             placeholder="Enter your email"
             value={formData.email}
             onChange={handleChange}
+            onFocus={() => handleFocus('email-field')}
+            onBlur={handleBlur}
             required
-            style={styles.input}
+            className="input-fun transition-all duration-300 focus:scale-[1.02] focus:shadow-glow"
           />
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Password</label>
-          <div style={styles.passwordContainer}>
+        {/* Password */}
+        <div className="flex flex-col gap-1 transform transition-all duration-300 hover:scale-[1.02]">
+          <label className="text-sm font-medium text-gray-600" htmlFor="password-field">
+            Password
+          </label>
+          <div className="relative">
             <input
+              id="password-field"
               type={showPassword ? 'text' : 'password'}
               name="password"
               placeholder="Enter your password"
               value={formData.password}
               onChange={handleChange}
+              onFocus={() => handleFocus('password-field')}
+              onBlur={handleBlur}
               required
-              style={styles.passwordInput}
+              className="input-fun pr-12 transition-all duration-300 focus:scale-[1.02] focus:shadow-glow"
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              style={styles.eyeButton}
+              onClick={handlePasswordToggle}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl transition-all duration-300 hover:scale-125 active:scale-95"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? '👁️' : '👁️‍🗨️'}
+              {showPassword ? '🙈' : '👁️'}
             </button>
           </div>
         </div>
 
-        <div style={styles.rememberContainer}>
-          <label style={styles.checkboxLabel}>
+        {/* Remember me + Forgot password */}
+        <div className="flex items-center justify-between text-sm">
+          <label className="flex items-center gap-2 cursor-pointer text-gray-600 select-none transition-all duration-300 hover:text-primary-600 group">
             <input
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
+              className="accent-primary-500 w-4 h-4 rounded transition-transform group-hover:scale-110"
             />
-            <span>Remember me</span>
+            <span className="group-hover:underline">Remember me</span>
           </label>
-          <button 
+          <button
             type="button"
-            onClick={() => navigate('/forgot-password')} 
-            style={styles.forgotLink}
+            onClick={() => navigate('/forgot-password')}
+            className="text-primary-600 hover:text-primary-700 font-medium hover:underline transition-all duration-300 hover:scale-105"
           >
             Forgot Password?
           </button>
         </div>
 
-        <button 
-          type="submit" 
-          disabled={loading}
-          style={styles.button}
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading || loginStatus === 'success'}
+          className={`w-full py-3 rounded-xl text-white font-semibold text-base transition-all duration-300 shadow-lg hover:shadow-2xl hover:-translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none mt-2 ${submitBg} transform active:scale-95`}
         >
-          {loading ? (
-            <div style={styles.loaderContainer}>
-              <div style={styles.loader}></div>
-              <span>Logging in...</span>
-            </div>
+          {loading || loginStatus === 'thinking' ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Logging in...
+            </span>
+          ) : loginStatus === 'success' ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="text-xl">🎉</span>
+              Welcome back!
+            </span>
           ) : (
             'Login'
           )}
         </button>
       </form>
 
-      <p style={styles.switchText}>
+      <p className="text-center mt-6 text-sm text-gray-500">
         Don't have an account?{' '}
-        <button onClick={() => navigate('/register')} style={styles.switchButton}>
+        <button
+          type="button"
+          onClick={() => navigate('/register')}
+          className="text-primary-600 hover:text-primary-700 font-semibold hover:underline transition-all duration-300 hover:scale-105 inline-block"
+        >
           Join the Community
         </button>
       </p>
+
+      {/* Decorative floating elements */}
+      <div className="absolute top-10 left-10 w-20 h-20 bg-primary-200 rounded-full opacity-20 animate-float" style={{ animationDelay: '0s' }} />
+      <div className="absolute bottom-20 right-10 w-16 h-16 bg-secondary-200 rounded-full opacity-20 animate-float" style={{ animationDelay: '1s' }} />
+      <div className="absolute top-1/2 right-5 w-12 h-12 bg-accent-peach rounded-full opacity-30 animate-float" style={{ animationDelay: '2s' }} />
     </AuthLayout>
   );
 }
-
-const styles = {
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  formGroup: {
-    marginBottom: '20px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
-    color: '#555',
-    fontWeight: '500',
-    fontSize: '14px',
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.2s',
-    ':focus': {
-      outline: 'none',
-      borderColor: '#667eea',
-    },
-  },
-  passwordContainer: {
-    position: 'relative',
-    width: '100%',
-  },
-  passwordInput: {
-    width: '100%',
-    padding: '12px',
-    paddingRight: '45px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    boxSizing: 'border-box',
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: '12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '20px',
-    padding: '5px',
-    color: '#666',
-  },
-  rememberContainer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    color: '#666',
-    fontSize: '14px',
-    cursor: 'pointer',
-  },
-  forgotLink: {
-    background: 'none',
-    border: 'none',
-    color: '#667eea',
-    cursor: 'pointer',
-    fontSize: '14px',
-    textDecoration: 'underline',
-  },
-  button: {
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    padding: '12px',
-    borderRadius: '8px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#5a6fd8',
-    },
-  },
-  loaderContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-  },
-  loader: {
-    width: '20px',
-    height: '20px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid white',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  successMessage: {
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    padding: '12px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    textAlign: 'center',
-    fontSize: '14px',
-    animation: 'slideDown 0.3s ease',
-  },
-  errorMessage: {
-    backgroundColor: '#fee',
-    color: '#c33',
-    padding: '12px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    textAlign: 'center',
-    fontSize: '14px',
-    animation: 'shake 0.3s ease',
-  },
-  switchText: {
-    textAlign: 'center',
-    marginTop: '20px',
-    color: '#666',
-    fontSize: '14px',
-  },
-  switchButton: {
-    background: 'none',
-    border: 'none',
-    color: '#667eea',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-    fontSize: '14px',
-    fontWeight: '500',
-  },
-};
-
-// Add keyframe animations
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  @keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default Login;

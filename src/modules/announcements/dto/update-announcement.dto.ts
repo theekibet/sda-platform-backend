@@ -1,13 +1,15 @@
 // src/modules/announcements/dto/update-announcement.dto.ts
-import { IsString, IsOptional, IsIn, IsArray, IsBoolean, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsArray, IsBoolean, IsDateString, MaxLength } from 'class-validator';
 
 export class UpdateAnnouncementDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200, { message: 'Title cannot exceed 200 characters' })
   title?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000, { message: 'Content cannot exceed 10000 characters' })
   content?: string;
 
   @IsOptional()

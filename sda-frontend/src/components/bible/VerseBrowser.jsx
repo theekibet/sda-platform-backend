@@ -1,4 +1,4 @@
-// src/components/Bible/VerseBrowser.jsx
+// src/components/bible/VerseBrowser.jsx
 import React, { useState } from 'react';
 import { bibleService } from '../../services/bibleService';
 import VerseCard from './VerseCard';
@@ -11,7 +11,6 @@ const VerseBrowser = ({ onSelectVerse }) => {
   const [translations, setTranslations] = useState([]);
   const [selectedTranslation, setSelectedTranslation] = useState('kjv');
 
-  // Load translations on mount
   useState(() => {
     bibleService.getTranslations().then(res => {
       setTranslations(res.data.data || []);
@@ -37,51 +36,48 @@ const VerseBrowser = ({ onSelectVerse }) => {
   };
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>📖 Browse Bible Verses</h2>
+    <div className="max-w-3xl mx-auto p-5">
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">📖 Browse Bible Verses</h2>
 
-      <form onSubmit={handleSearch} style={styles.searchForm}>
-        <div style={styles.inputGroup}>
+      <form onSubmit={handleSearch} className="mb-5">
+        <div className="flex flex-wrap gap-3">
           <input
             type="text"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder="e.g., John 3:16"
-            style={styles.input}
+            className="flex-1 min-w-[200px] p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           
           <select
             value={selectedTranslation}
             onChange={(e) => setSelectedTranslation(e.target.value)}
-            style={styles.select}
+            className="flex-1 min-w-[150px] p-2.5 border border-gray-300 rounded-lg bg-white"
           >
             {translations.map(t => (
-              <option key={t.code} value={t.code}>
-                {t.name}
-              </option>
+              <option key={t.code} value={t.code}>{t.name}</option>
             ))}
           </select>
 
           <button
             type="submit"
             disabled={loading}
-            style={styles.searchButton}
+            className="px-5 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition"
           >
             {loading ? 'Searching...' : 'Search'}
           </button>
         </div>
       </form>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div className="p-3 bg-red-50 text-red-700 rounded-lg mb-4">{error}</div>}
 
       {verse && (
-        <div style={styles.result}>
+        <div className="mt-5">
           <VerseCard verse={verse} />
-          
           {onSelectVerse && (
             <button
               onClick={() => onSelectVerse(verse)}
-              style={styles.selectButton}
+              className="w-full mt-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition"
             >
               Select This Verse
             </button>
@@ -90,72 +86,6 @@ const VerseBrowser = ({ onSelectVerse }) => {
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '20px',
-  },
-  title: {
-    color: '#333',
-    marginBottom: '20px',
-  },
-  searchForm: {
-    marginBottom: '20px',
-  },
-  inputGroup: {
-    display: 'flex',
-    gap: '10px',
-    flexWrap: 'wrap',
-  },
-  input: {
-    flex: 2,
-    minWidth: '200px',
-    padding: '10px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-  },
-  select: {
-    flex: 1,
-    minWidth: '150px',
-    padding: '10px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-  },
-  searchButton: {
-    padding: '10px 20px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '16px',
-  },
-  error: {
-    padding: '10px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  result: {
-    marginTop: '20px',
-  },
-  selectButton: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    marginTop: '15px',
-  },
 };
 
 export default VerseBrowser;

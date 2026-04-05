@@ -1,7 +1,7 @@
 // src/pages/admin/settings/FeatureFlags.jsx
 import React, { useState, useEffect } from 'react';
 import { getFeatureFlags, updateFeatureFlag } from '../../../services/api';
-import { FEATURE_FLAGS } from '../../../utils/constants';
+import { FEATURE_FLAGS } from '../../../constants/constants';
 
 const FeatureFlags = () => {
   const [flags, setFlags] = useState([]);

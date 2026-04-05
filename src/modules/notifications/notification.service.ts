@@ -21,6 +21,7 @@ export class NotificationService {
     private notificationGateway: NotificationGateway,
   ) {}
 
+  // Primary creation method
   async create(dto: CreateNotificationDto) {
     this.logger.log(`Creating notification for user ${dto.userId}: ${dto.type}`);
     
@@ -56,6 +57,11 @@ export class NotificationService {
     }
   }
 
+  // Alias for create (used by other modules)
+  async createNotification(dto: CreateNotificationDto) {
+    return this.create(dto);
+  }
+
   async createBulk(dtos: CreateNotificationDto[]) {
     this.logger.log(`📦 Creating ${dtos.length} notifications in bulk`);
     
@@ -65,12 +71,6 @@ export class NotificationService {
     }
 
     try {
-      // Log sample of first few notifications for debugging
-      this.logger.debug('Sample of first 3 notifications:');
-      dtos.slice(0, 3).forEach((d, i) => {
-        this.logger.debug(`  ${i+1}. User: ${d.userId}, Type: ${d.type}, Title: ${d.title.substring(0, 30)}...`);
-      });
-
       const notifications = await this.prisma.notification.createMany({
         data: dtos.map(d => ({
           type: d.type,
@@ -83,17 +83,14 @@ export class NotificationService {
 
       this.logger.log(`✅ Successfully created ${notifications.count} notifications`);
 
-      // Send real-time notifications to each user (but don't block on errors)
-      this.logger.log(`📨 Attempting to send real-time notifications to ${dtos.length} users...`);
-      
-      let sentCount = 0;
+      // Send real-time notifications to each user
       dtos.forEach(dto => {
         try {
           this.notificationGateway.sendToUser(
             dto.userId, 
             'NEW_NOTIFICATION', 
             { 
-              id: `temp-${Date.now()}`, // Note: real ID would come from createMany but not available
+              id: `temp-${Date.now()}`,
               type: dto.type,
               title: dto.title,
               message: dto.message,
@@ -102,20 +99,20 @@ export class NotificationService {
               isRead: false,
             }
           );
-          sentCount++;
         } catch (wsError) {
           this.logger.debug(`Could not send real-time to user ${dto.userId}: ${wsError.message}`);
         }
       });
-      
-      this.logger.log(`📨 Real-time notifications sent to ${sentCount}/${dtos.length} users`);
 
       return notifications;
     } catch (error) {
       this.logger.error(`❌ Error in createBulk: ${error.message}`);
-      this.logger.error(error.stack);
       throw error;
     }
+  }
+
+  async createBulkNotifications(dtos: CreateNotificationDto[]) {
+    return this.createBulk(dtos);
   }
 
   async getUserNotifications(userId: string, query: NotificationQueryDto) {
@@ -146,9 +143,6 @@ export class NotificationService {
         where: { userId, isRead: false, isArchived: false },
       });
 
-      this.logger.debug(`Found ${notifications.length} notifications for user ${userId} (${unreadCount} unread)`);
-
-      // Parse JSON data for each notification
       const parsedNotifications = notifications.map(notif => {
         try {
           return {
@@ -156,7 +150,6 @@ export class NotificationService {
             data: notif.data ? JSON.parse(notif.data) : null,
           };
         } catch (e) {
-          this.logger.warn(`Failed to parse notification data for ${notif.id}: ${e.message}`);
           return { ...notif, data: null };
         }
       });
@@ -186,18 +179,11 @@ export class NotificationService {
         data: { isRead: true, readAt: new Date() },
       });
       
-      this.logger.log(`✅ Notification ${notificationId} marked as read`);
-      
-      // Notify other devices about the read status
-      try {
-        this.notificationGateway.sendToUser(
-          userId,
-          'notificationUpdated',
-          { id: notificationId, isRead: true }
-        );
-      } catch (wsError) {
-        // Ignore WebSocket errors for this operation
-      }
+      this.notificationGateway.sendToUser(
+        userId,
+        'notificationUpdated',
+        { id: notificationId, isRead: true }
+      );
       
       return result;
     } catch (error) {
@@ -215,18 +201,11 @@ export class NotificationService {
         data: { isRead: true, readAt: new Date() },
       });
       
-      this.logger.log(`✅ Marked ${result.count} notifications as read for user ${userId}`);
-      
-      // Notify about the bulk update
-      try {
-        this.notificationGateway.sendToUser(
-          userId,
-          'allNotificationsRead',
-          { timestamp: new Date() }
-        );
-      } catch (wsError) {
-        // Ignore WebSocket errors
-      }
+      this.notificationGateway.sendToUser(
+        userId,
+        'allNotificationsRead',
+        { timestamp: new Date() }
+      );
       
       return result;
     } catch (error) {
@@ -244,7 +223,6 @@ export class NotificationService {
         data: { isArchived: true },
       });
       
-      this.logger.log(`✅ Notification ${notificationId} archived`);
       return result;
     } catch (error) {
       this.logger.error(`Failed to archive notification ${notificationId}: ${error.message}`);
@@ -260,7 +238,6 @@ export class NotificationService {
         where: { id: notificationId, userId },
       });
       
-      this.logger.log(`✅ Notification ${notificationId} deleted`);
       return result;
     } catch (error) {
       this.logger.error(`Failed to delete notification ${notificationId}: ${error.message}`);
@@ -279,5 +256,68 @@ export class NotificationService {
       this.logger.error(`Failed to get unread count for user ${userId}: ${error.message}`);
       return 0;
     }
+  }
+
+  // ============ NOTIFICATION PREFERENCES ============
+
+  async getPreferences(userId: string) {
+    this.logger.log(`Getting notification preferences for user ${userId}`);
+    
+    try {
+      const preferences = await this.prisma.notificationPreference.findUnique({
+        where: { userId },
+      });
+
+      if (!preferences) {
+        this.logger.log(`No preferences found for user ${userId}, creating defaults`);
+        return this.createDefaultPreferences(userId);
+      }
+
+      return preferences;
+    } catch (error) {
+      this.logger.error(`Failed to get preferences for user ${userId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async updatePreferences(userId: string, data: any) {
+    this.logger.log(`Updating notification preferences for user ${userId}`);
+    
+    try {
+      const existing = await this.prisma.notificationPreference.findUnique({
+        where: { userId },
+      });
+
+      if (!existing) {
+        return this.prisma.notificationPreference.create({
+          data: { userId, ...data },
+        });
+      }
+
+      return this.prisma.notificationPreference.update({
+        where: { userId },
+        data,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to update preferences for user ${userId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async createDefaultPreferences(userId: string) {
+    return this.prisma.notificationPreference.create({
+      data: {
+        userId,
+        emailEnabled: true,
+        inAppEnabled: true,
+        communityPosts: true,
+        communityResponses: true,
+        postMentions: true,
+        discussionReplies: true,
+        prayerResponses: true,
+        announcements: true,
+        digestFrequency: 'daily',
+      },
+    });
   }
 }

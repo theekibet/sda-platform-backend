@@ -121,10 +121,9 @@ export class ReportsService {
   }
 
   // ============ HELPER METHODS ============
-
   private async validateContentExists(contentType: string, contentId: string) {
     let exists = false;
-
+  
     switch (contentType) {
       case 'prayerRequest':
         const prayer = await this.prisma.prayerRequest.findUnique({ where: { id: contentId } });
@@ -134,10 +133,9 @@ export class ReportsService {
         const testimony = await this.prisma.testimony.findUnique({ where: { id: contentId } });
         exists = !!testimony;
         break;
-      case 'groupDiscussion':
-      case 'groupMessage':
-        const message = await this.prisma.groupMessage.findUnique({ where: { id: contentId } });
-        exists = !!message;
+      case 'discussion':
+        const discussion = await this.prisma.discussion.findUnique({ where: { id: contentId } });
+        exists = !!discussion;
         break;
       case 'user':
         const user = await this.prisma.member.findUnique({ where: { id: contentId } });
@@ -150,12 +148,12 @@ export class ReportsService {
       default:
         throw new BadRequestException(`Invalid content type: ${contentType}`);
     }
-
+  
     if (!exists) {
       throw new NotFoundException(`${contentType} with ID ${contentId} not found`);
     }
   }
-
+  
   private async getContentSnippet(contentType: string, contentId: string): Promise<string> {
     switch (contentType) {
       case 'prayerRequest':
@@ -172,13 +170,12 @@ export class ReportsService {
         });
         return testimony?.content?.substring(0, 100) || 'Testimony content';
         
-      case 'groupDiscussion':
-      case 'groupMessage':
-        const message = await this.prisma.groupMessage.findUnique({
+      case 'discussion':
+        const discussion = await this.prisma.discussion.findUnique({
           where: { id: contentId },
-          select: { content: true }
+          select: { title: true, content: true }
         });
-        return message?.content?.substring(0, 100) || 'Group message content';
+        return discussion?.title || discussion?.content?.substring(0, 100) || 'Discussion content';
         
       case 'user':
         const user = await this.prisma.member.findUnique({

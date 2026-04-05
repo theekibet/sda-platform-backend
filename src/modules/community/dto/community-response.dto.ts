@@ -1,12 +1,14 @@
 // src/modules/community/dto/community-response.dto.ts
-import { IsString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsIn, MaxLength, IsNotEmpty } from 'class-validator';
 
 export class CommunityResponseDto {
   @IsString()
-  @IsIn(['interested', 'going', 'helping', 'praying'])
+  @IsNotEmpty()
+  @IsIn(['support'])  
   response: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500, { message: 'Comment cannot exceed 500 characters' })
   comment?: string;
 }

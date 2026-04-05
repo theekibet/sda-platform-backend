@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { ModerateContentDto } from './dto/moderate-content.dto';
 import { ModerationQueryDto } from './dto/moderation-query.dto';
@@ -7,8 +7,17 @@ import { ModerationQueryDto } from './dto/moderation-query.dto';
 type ContentType = 
   | (Awaited<ReturnType<PrismaService['prayerRequest']['findUnique']>>)
   | (Awaited<ReturnType<PrismaService['testimony']['findUnique']>>)
-  | (Awaited<ReturnType<PrismaService['groupMessage']['findUnique']>>)
+  | (Awaited<ReturnType<PrismaService['discussion']['findUnique']>>)
   | (Awaited<ReturnType<PrismaService['communityPost']['findUnique']>>);
+
+// 🔥 FIX: Add typed DTO for moderation logs query
+interface ModerationLogsQueryDto {
+  moderatorId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
 
 @Injectable()
 export class ModerationService {
@@ -95,7 +104,7 @@ export class ModerationService {
 
   async getContentForReview(contentId: string, contentType: string): Promise<ContentType> {
     let content: ContentType = null;
-
+  
     switch (contentType) {
       case 'prayerRequest':
         content = await this.prisma.prayerRequest.findUnique({
@@ -125,9 +134,8 @@ export class ModerationService {
           },
         }) as ContentType;
         break;
-      case 'groupDiscussion':
-      case 'groupMessage':
-        content = await this.prisma.groupMessage.findUnique({
+      case 'discussion':
+        content = await this.prisma.discussion.findUnique({
           where: { id: contentId },
           include: {
             author: {
@@ -156,11 +164,11 @@ export class ModerationService {
         }) as ContentType;
         break;
     }
-
+  
     if (!content) {
       throw new NotFoundException(`${contentType} with ID ${contentId} not found`);
     }
-
+  
     return content;
   }
 
@@ -243,7 +251,8 @@ export class ModerationService {
     };
   }
 
-  async getModerationLogs(query: any) {
+  // 🔥 FIX: Replace query: any with typed ModerationLogsQueryDto
+  async getModerationLogs(query: ModerationLogsQueryDto) {
     const { moderatorId, startDate, endDate, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
@@ -295,9 +304,8 @@ export class ModerationService {
       case 'testimony':
         await this.prisma.testimony.delete({ where: { id: contentId } });
         break;
-      case 'groupDiscussion':
-      case 'groupMessage':
-        await this.prisma.groupMessage.delete({ where: { id: contentId } });
+      case 'discussion':
+        await this.prisma.discussion.delete({ where: { id: contentId } });
         break;
       case 'communityPost':
         await this.prisma.communityPost.delete({ where: { id: contentId } });
@@ -354,7 +362,13 @@ export class ModerationService {
 
   // ============ AUTO-MODERATION ============
 
-  async checkContentForFlags(content: string, contentType: string, authorId?: string) {
+  // 🔥 FIX: Remove tempId - require real contentId after content is saved
+  async checkContentForFlags(
+    contentId: string, 
+    content: string, 
+    contentType: string, 
+    authorId?: string
+  ) {
     const flags = await this.prisma.contentFlag.findMany({
       where: { isActive: true },
     });
@@ -364,15 +378,13 @@ export class ModerationService {
     );
 
     if (flaggedWords.length > 0) {
-      // Generate a temporary ID for auto-flagged content
-      const tempId = `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Create auto-report
+      // 🔥 FIX: Use real contentId that was already created
       await this.prisma.report.create({
         data: {
           reportedById: 'system',
           contentType: contentType === 'groupDiscussion' ? 'groupMessage' : contentType,
-          contentId: tempId,
+          contentId: contentId, // Real ID from saved content
+          reportedUserId: authorId,
           contentSnippet: content.substring(0, 200),
           category: 'auto-flagged',
           description: `Auto-flagged for: ${flaggedWords.map(f => f.keyword).join(', ')}`,
@@ -384,6 +396,7 @@ export class ModerationService {
       return {
         flagged: true,
         flags: flaggedWords,
+        reportCreated: true,
       };
     }
 
@@ -446,32 +459,77 @@ export class ModerationService {
     action: 'approve' | 'remove' | 'warn' | 'flag' | 'dismiss', 
     reason?: string
   ) {
-    const results: Array<{ 
-      contentId: string; 
-      success: boolean; 
-      result?: { 
-        success: boolean; 
-        message: string; 
-        action: string; 
-        contentId: string; 
-        contentType: string; 
-      }; 
-      error?: string;
-    }> = [];
-    
-    for (const contentId of contentIds) {
-      try {
-        const result = await this.moderateContent(moderatorId, contentId, contentType, {
-          action,
-          reason,
-          notifyUser: false,
-          sendWarning: false,
-        });
-        results.push({ contentId, success: true, result });
-      } catch (error) {
-        results.push({ contentId, success: false, error: error.message });
-      }
+    if (!contentIds || contentIds.length === 0) {
+      throw new BadRequestException('No content IDs provided');
     }
+
+    // 🔥 FIX: Wrap bulk operations in transaction for better performance
+    const results = await this.prisma.$transaction(async (tx) => {
+      const bulkResults: Array<{ 
+        contentId: string; 
+        success: boolean; 
+        result?: any; 
+        error?: string;
+      }> = [];
+      
+      for (const contentId of contentIds) {
+        try {
+          // Get the content
+          const content = await this.getContentForReview(contentId, contentType);
+          const authorId = (content as any).authorId || (content as any).author?.id;
+
+          // Log the moderation action
+          await tx.moderationLog.create({
+            data: {
+              moderatorId,
+              action,
+              contentType: contentType === 'groupDiscussion' ? 'groupMessage' : contentType,
+              contentId,
+              contentSnippet: this.getContentSnippet(content),
+              reason,
+              targetUserId: authorId,
+            },
+          });
+
+          // Take action based on the moderation decision
+          switch (action) {
+            case 'remove':
+              await this.removeContent(contentId, contentType);
+              break;
+            case 'warn':
+              if (authorId) {
+                await this.sendWarningToUser(authorId, reason);
+              }
+              break;
+            // approve, flag, dismiss don't need extra action
+          }
+
+          // Update any related reports
+          await tx.report.updateMany({
+            where: {
+              contentId,
+              contentType: {
+                in: [contentType, contentType === 'groupDiscussion' ? 'groupMessage' : contentType]
+              },
+              status: 'pending',
+            },
+            data: {
+              status: 'resolved',
+              resolution: action,
+              resolvedById: moderatorId,
+              resolvedAt: new Date(),
+              adminNotes: reason,
+            },
+          });
+
+          bulkResults.push({ contentId, success: true, result: { action } });
+        } catch (error) {
+          bulkResults.push({ contentId, success: false, error: error.message });
+        }
+      }
+      
+      return bulkResults;
+    });
 
     return {
       success: true,

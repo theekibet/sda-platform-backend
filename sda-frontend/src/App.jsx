@@ -6,23 +6,29 @@ import Layout from './components/layout/Layout';
 import LandingPage from './pages/public/LandingPage';
 import Login from './components/members/Login';
 import Register from './components/members/Register';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 import Dashboard from './pages/members/Dashboard';
-import AdminLogin from './pages/admin/AdminLogin';
+import AdminLogin from './components/auth/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import PrayerWall from './pages/members/PrayerWall';
 import Profile from './pages/members/Profile';
+import CreatePostModal from './components/community/CreatePostModal';
+import GroupsList from './components/groups/GroupsList';
+import GroupDetail from './components/groups/GroupDetail';
 
-import GroupsList from './pages/members/groups/GroupsList';
-import GroupDetail from './pages/members/groups/GroupDetail';
-
-// ✅ Bible Components
+// Bible Components
 import BibleReader from './components/bible/BibleReader';
 import VerseOfTheDay from './components/bible/VerseOfTheDay';
 import VerseBrowser from './components/bible/VerseBrowser';
 import VerseQueueStatus from './components/bible/VerseQueueStatus';
 import MySubmissions from './pages/members/MySubmissions';
 
-// ✅ Admin Components
+// Community Components
+import CommunityBoard from './components/community/CommunityBoard';
+import PostDetail from './components/community/PostDetail';
+
+// Admin Components
 import ModerationQueue from './pages/admin/moderation/ModerationQueue';
 import AnnouncementList from './pages/admin/announcements/AnnouncementList';
 import SettingsPanel from './pages/admin/settings/SettingsPanel';
@@ -33,21 +39,27 @@ import BackupManager from './pages/admin/maintenance/BackupManager';
 import SystemHealth from './pages/admin/maintenance/SystemHealth';
 import UserManagement from './pages/admin/UserManagement';
 import Analytics from './pages/admin/Analytics';
-import AdminVerseQueue from './pages/admin/Admin/Bible/AdminVerseQueue'; 
+import AdminVerseQueue from './pages/admin/bible/AdminVerseQueue';
 
-import CommunityBoard from './pages/members/community/CommunityBoard';
-import LearningHub from './pages/members/learning/LearningHub';
-import Discover from './pages/members/Discover';
+import LearningHub from './pages/members/LearningHub';
 import Bookmarks from './pages/members/Bookmarks';
+
+// ============ Discussion Components ============
+import DiscussionsFeed from './pages/members/discussions/DiscussionsFeed';
+import CreateDiscussion from './pages/members/discussions/CreateDiscussion';
+import DiscussionDetail from './pages/members/discussions/DiscussionDetail';
+
+// ============ Search Component ============
+import SearchResults from './pages/members/SearchResults';
 
 function App() {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingSpinner}></div>
-        <div style={styles.loadingText}>Loading...</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary-500 to-secondary-500 gap-5">
+        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+        <div className="text-white text-lg font-medium">Loading...</div>
       </div>
     );
   }
@@ -59,15 +71,43 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        
+        {/* Password Reset Routes */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        
         <Route path="/admin/login" element={<AdminLogin />} />
 
         {/* ===== BIBLE READER FULL-SCREEN ROUTES ===== */}
-        {/* These MUST be outside Layout for full-screen experience */}
         <Route path="/bible/read/:book/:chapter?" element={
           <BibleReader mode="fullscreen" />
         } />
         <Route path="/bible/read" element={
           <Navigate to="/bible/read/Genesis/1" replace />
+        } />
+
+        {/* ============ DISCUSSION ROUTES (WITH LAYOUT) ============ */}
+        <Route path="/discussions" element={
+          <Layout>
+            <DiscussionsFeed />
+          </Layout>
+        } />
+        <Route path="/discussions/create" element={
+          <Layout>
+            <CreateDiscussion />
+          </Layout>
+        } />
+        <Route path="/discussions/:id" element={
+          <Layout>
+            <DiscussionDetail />
+          </Layout>
+        } />
+
+        {/* ============ SEARCH ROUTE ============ */}
+        <Route path="/search" element={
+          <Layout>
+            <SearchResults />
+          </Layout>
         } />
 
         {/* Protected Member Routes - WITH Layout */}
@@ -89,7 +129,6 @@ function App() {
           </Layout>
         } />
         
-        
         <Route path="/groups" element={
           <Layout>
             <GroupsList />
@@ -105,12 +144,12 @@ function App() {
         {/* Bible Routes - WITH Layout (these are dashboard views) */}
         <Route path="/bible/reader" element={
           <Layout>
-            <div style={{ padding: '20px' }}>
-              <h2>📖 Bible Reader</h2>
-              <p>Click the button below to open the full-screen Bible reader</p>
-              <button 
+            <div className="p-5 text-center">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">📖 Bible Reader</h2>
+              <p className="text-gray-600 mb-5">Click the button below to open the full-screen Bible reader</p>
+              <button
                 onClick={() => window.location.href = '/bible/read'}
-                style={styles.bibleButton}
+                className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition"
               >
                 Open Full-Screen Bible Reader
               </button>
@@ -142,23 +181,38 @@ function App() {
           </Layout>
         } />
 
-        <Route path="/bible/bookmarks" element={
+        {/* Bookmarks Route */}
+        <Route path="/bookmarks" element={
           <Layout>
             <Bookmarks />
           </Layout>
         } />
 
-        {/* Discover Route */}
-        <Route path="/discover" element={
-          <Layout>
-            <Discover />
-          </Layout>
+        {/* Bible Bookmarks - Redirect to main bookmarks */}
+        <Route path="/bible/bookmarks" element={
+          <Navigate to="/bookmarks" replace />
         } />
 
         {/* Community Board */}
         <Route path="/community" element={
           <Layout>
             <CommunityBoard />
+          </Layout>
+        } />
+       
+        <Route path="/community/create" element={
+          <Layout>
+            <CreatePostModal
+              onClose={() => window.history.back()}
+              onPostCreated={() => window.location.href = '/community'}
+            />
+          </Layout>
+        } />
+
+        {/* Post Detail Route */}
+        <Route path="/community/post/:postId" element={
+          <Layout>
+            <PostDetail />
           </Layout>
         } />
 
@@ -249,56 +303,14 @@ function App() {
   );
 }
 
-const styles = {
-  loadingContainer: {
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    gap: '20px',
-  },
-  loadingSpinner: {
-    width: '50px',
-    height: '50px',
-    border: '4px solid rgba(255, 255, 255, 0.3)',
-    borderTop: '4px solid white',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  loadingText: {
-    color: 'white',
-    fontSize: '1.2rem',
-    fontWeight: '500',
-  },
-  comingSoon: {
-    textAlign: 'center',
-    padding: '50px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    color: '#666',
-  },
-  bibleButton: {
-    padding: '12px 24px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    marginTop: '20px'
-  }
-};
-
-// Add keyframe animation
-const styleSheet = document.styleSheets[0];
-const keyframes = `
+// Add spin animation keyframes safely
+const styleElement = document.createElement('style');
+styleElement.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
 `;
-styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
+document.head.appendChild(styleElement);
 
 export default App;

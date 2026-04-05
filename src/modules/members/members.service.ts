@@ -20,36 +20,32 @@ export class MembersService {
     return member;
   }
 
-  // ============ PROFILE METHODS ============
-  
   async getProfile(userId: string) {
-    const member = await this.prisma.member.findUnique({
+    const profile = await this.prisma.member.findUnique({
       where: { id: userId },
       select: {
         id: true,
         name: true,
         email: true,
         phone: true,
-        avatarUrl: true,
         bio: true,
         age: true,
         gender: true,
-        locationName: true,        // ✅ Include location fields
-        locationPrivacy: true,
-        locationLastUpdated: true,
-        isAdmin: true,
-        isSuspended: true,
+        locationName: true,
+        latitude: true,
+        longitude: true,
+        avatarUrl: true,
         createdAt: true,
-        lastActiveAt: true,
-        // Add any other fields you want to expose
-      }
+        isAdmin: true,
+        isSuperAdmin: true,
+        locationLastUpdated: true,  // ✅ Added for completeness
+      },
     });
-
-    if (!member) {
-      throw new NotFoundException('Member not found');
-    }
-
-    return member;
+  
+    return {
+      success: true,
+      data: profile,
+    };
   }
 
   async updateProfile(userId: string, updateData: UpdateProfileDto) {
@@ -76,8 +72,8 @@ export class MembersService {
       updateData.newPassword = await bcrypt.hash(updateData.newPassword, 10);
     }
   
-    // Prepare data for update
-    const { currentPassword, newPassword, locationName, locationPrivacy, ...cleanData } = updateData;
+    // ✅ REMOVED locationPrivacy from destructuring
+    const { currentPassword, newPassword, locationName, ...cleanData } = updateData;
     
     const dataToUpdate: any = { ...cleanData };
     
@@ -92,11 +88,8 @@ export class MembersService {
       dataToUpdate.locationLastUpdated = new Date();
     }
 
-    if (locationPrivacy !== undefined) {
-      dataToUpdate.locationPrivacy = locationPrivacy;
-      dataToUpdate.locationLastUpdated = new Date();
-    }
-  
+    // ✅ REMOVED the locationPrivacy block completely
+    
     const updated = await this.prisma.member.update({
       where: { id: userId },
       data: dataToUpdate,
@@ -110,8 +103,9 @@ export class MembersService {
         age: true,
         gender: true,
         locationName: true,
-        locationPrivacy: true,
-        locationLastUpdated: true,
+        latitude: true,
+        longitude: true,
+        locationLastUpdated: true,  // ✅ Added
         isAdmin: true,
         isSuspended: true,
         createdAt: true,
@@ -122,37 +116,37 @@ export class MembersService {
     return updated;
   }
 
-  // ============ NEW: DEDICATED LOCATION UPDATE ============
-  
+  // ============ LOCATION METHODS ============
+
   async updateLocation(
     userId: string, 
-    locationData: { locationName?: string; locationPrivacy?: 'exact' | 'city' | 'country' | 'none' }
+    data: { locationName: string; latitude?: number; longitude?: number }
   ) {
-    const member = await this.prisma.member.findUnique({
-      where: { id: userId }
-    });
-
-    if (!member) {
-      throw new NotFoundException('Member not found');
-    }
-
     const updated = await this.prisma.member.update({
       where: { id: userId },
       data: {
-        locationName: locationData.locationName,
-        locationPrivacy: locationData.locationPrivacy,
+        locationName: data.locationName,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
         locationLastUpdated: new Date(),
       },
       select: {
         id: true,
         name: true,
+        email: true,
         locationName: true,
-        locationPrivacy: true,
+        latitude: true,
+        longitude: true,
+        avatarUrl: true,
         locationLastUpdated: true,
-      }
+      },
     });
 
-    return updated;
+    return {
+      success: true,
+      message: 'Location updated successfully',
+      data: updated,
+    };
   }
 
   async updateProfilePicture(userId: string, avatarUrl: string): Promise<Member> {

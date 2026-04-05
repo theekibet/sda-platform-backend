@@ -8,7 +8,6 @@ import {
   BOOK_CHAPTERS_MAP,
 } from '../../constants/bibleData';
 import ShareVerseModal from './ShareVerseModal';
-import './BibleReader.css';
 
 const BibleReader = ({ 
   mode = 'fullscreen',
@@ -239,7 +238,6 @@ const BibleReader = ({
   };
 
   const handleShare = () => {
-    // Create a verse object from the selected text
     const primaryVerse = selectionMenu.verses[0] || verses[0];
     
     const verseToShare = {
@@ -258,107 +256,116 @@ const BibleReader = ({
 
   if (mode === 'modal') {
     return (
-      <div className="bible-reader-overlay" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5" onClick={onClose}>
         <div 
-          className={`bible-reader-modal ${darkMode ? 'dark-mode' : ''}`} 
+          className={`relative bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl ${darkMode ? 'dark' : ''}`}
           onClick={e => e.stopPropagation()}
         >
-          <div className="bible-reader-header">
-            <div className="header-left">
-              <h2>📖 Bible Reader</h2>
-            </div>
-            <div className="header-right">
-              <button 
+          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">📖 Bible Reader</h2>
+            <div className="flex gap-2">
+              <button
                 onClick={() => window.open(`/bible/read/${selectedBook}/${selectedChapter}`, '_blank')}
-                className="icon-btn"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                 title="Open in Full Screen"
               >
                 ⛶
               </button>
-              <button onClick={() => setDarkMode(!darkMode)} className="icon-btn">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
                 {darkMode ? '☀️' : '🌙'}
               </button>
-              <button onClick={onClose} className="icon-btn">✕</button>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                ✕
+              </button>
             </div>
           </div>
 
-          <div className="bible-reader-controls">
-            <select 
+          <div className="flex flex-wrap gap-3 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <select
               value={selectedBook}
               onChange={(e) => setSelectedBook(e.target.value)}
-              className="book-select"
+              className="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               {books.map(book => (
                 <option key={book} value={book}>{book}</option>
               ))}
             </select>
             
-            <select 
+            <select
               value={selectedChapter}
               onChange={(e) => setSelectedChapter(Number(e.target.value))}
-              className="chapter-select"
+              className="flex-1 min-w-[100px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               {chapterOptions.map(ch => (
                 <option key={ch} value={ch}>Chapter {ch}</option>
               ))}
             </select>
 
-            <div className="font-controls">
-              <button onClick={decreaseFontSize}>A-</button>
-              <span>{fontSize}px</span>
-              <button onClick={increaseFontSize}>A+</button>
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-lg px-3 py-1 border border-gray-300 dark:border-gray-600">
+              <button onClick={decreaseFontSize} className="px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded">A-</button>
+              <span className="text-sm text-gray-600 dark:text-gray-300">{fontSize}px</span>
+              <button onClick={increaseFontSize} className="px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded">A+</button>
             </div>
           </div>
 
-          <div 
+          <div
             ref={versesContainerRef}
-            className="bible-reader-verses" 
+            className="flex-1 overflow-y-auto p-6"
             style={{ fontSize: `${fontSize}px` }}
           >
             {loading ? (
-              <div className="loading">Loading...</div>
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+              </div>
             ) : error ? (
-              <div className="error">{error}</div>
+              <div className="text-center text-red-500 py-12">{error}</div>
             ) : (
               verses.map(verse => (
-                <div 
-                  key={verse.verse} 
-                  className="verse"
+                <div
+                  key={verse.verse}
+                  className="mb-4 leading-relaxed hover:bg-gray-50 dark:hover:bg-gray-800 rounded p-2 transition cursor-pointer"
                   onClick={() => handleVerseClick(verse)}
                 >
-                  <span className="verse-num">{verse.verse}</span>
-                  <span className="verse-text">{verse.text}</span>
+                  <span className="inline-block w-8 font-bold text-primary-500 dark:text-primary-400 mr-2">{verse.verse}</span>
+                  <span className="text-gray-800 dark:text-gray-200">{verse.text}</span>
                 </div>
               ))
             )}
           </div>
 
           {selectionMenu.show && (
-            <div 
-              className="selection-menu"
+            <div
+              className="selection-menu fixed z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1"
               style={{
-                position: 'fixed',
                 left: `${selectionMenu.x}px`,
                 top: `${selectionMenu.y}px`,
                 transform: 'translate(-50%, -100%)'
               }}
             >
-              <button onClick={handleCopy} className="selection-menu-btn copy">
+              <button
+                onClick={handleCopy}
+                className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
                 📋 Copy
               </button>
-              <button onClick={handleShare} className="selection-menu-btn share">
+              <button
+                onClick={handleShare}
+                className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              >
                 📤 Share
               </button>
             </div>
           )}
 
           {showCopyToast && (
-            <div className="copy-success-toast">
+            <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-out">
               ✓ Copied to clipboard!
             </div>
           )}
 
-          {/* ShareVerseModal */}
           {showShareModal && selectedVerse && (
             <ShareVerseModal
               verse={selectedVerse}
@@ -378,116 +385,142 @@ const BibleReader = ({
     );
   }
 
+  // Fullscreen mode
   return (
-    <div className={`bible-full ${darkMode ? 'dark-mode' : ''}`}>
-      <header className="bible-full-header">
-        <div className="header-left">
-          <button 
-            className="icon-btn"
-            onClick={() => navigate('/dashboard')}
-            title="Back to Dashboard"
-          >
-            ←
-          </button>
-          <select 
-            value={selectedBook}
-            onChange={(e) => setSelectedBook(e.target.value)}
-            className="book-select"
-          >
-            {books.map(book => (
-              <option key={book} value={book}>{book}</option>
-            ))}
-          </select>
-          
-          <select 
-            value={selectedChapter}
-            onChange={(e) => setSelectedChapter(Number(e.target.value))}
-            className="chapter-select"
-          >
-            {chapterOptions.map(ch => (
-              <option key={ch} value={ch}>Chapter {ch}</option>
-            ))}
-          </select>
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+      <header className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex justify-between items-center p-4 max-w-7xl mx-auto">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              title="Back to Dashboard"
+            >
+              ←
+            </button>
+            <select
+              value={selectedBook}
+              onChange={(e) => setSelectedBook(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              {books.map(book => (
+                <option key={book} value={book}>{book}</option>
+              ))}
+            </select>
+            <select
+              value={selectedChapter}
+              onChange={(e) => setSelectedChapter(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              {chapterOptions.map(ch => (
+                <option key={ch} value={ch}>Chapter {ch}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              title="Settings"
+            >
+              ⚙️
+            </button>
+            <button
+              onClick={() => setShowNotes(!showNotes)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              title="Notes"
+            >
+              📝
+            </button>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              title="Toggle Theme"
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <div className="header-right">
-          <button onClick={() => setShowSettings(!showSettings)} className="icon-btn" title="Settings">
-            ⚙️
-          </button>
-          <button onClick={() => setShowNotes(!showNotes)} className="icon-btn" title="Notes">
-            📝
-          </button>
-          <button onClick={() => setDarkMode(!darkMode)} className="icon-btn" title="Toggle Theme">
-            {darkMode ? '☀️' : '🌙'}
-          </button>
-          <button onClick={() => navigate('/dashboard')} className="icon-btn" title="Close">
-            ✕
-          </button>
-        </div>
-      </header>
-
-      {showSettings && (
-        <div className="settings-panel">
-          <div className="settings-content">
-            <div className="font-controls">
+        {showSettings && (
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+            <div className="max-w-7xl mx-auto flex justify-between items-center">
               <span>Font Size: {fontSize}px</span>
-              <div>
-                <button onClick={decreaseFontSize}>A-</button>
-                <button onClick={increaseFontSize}>A+</button>
+              <div className="flex gap-2">
+                <button onClick={decreaseFontSize} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition">A-</button>
+                <button onClick={increaseFontSize} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition">A+</button>
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Chapter {selectedChapter} of {BOOK_CHAPTERS_MAP[selectedBook]}
               </div>
             </div>
-            <div className="reading-progress">
-              <span>Chapter {selectedChapter} of {BOOK_CHAPTERS_MAP[selectedBook]}</span>
+          </div>
+        )}
+
+        {showNotes && (
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold">Notes for {selectedBook} {selectedChapter}</h3>
+                <button onClick={() => setShowNotes(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">✕</button>
+              </div>
+              <textarea
+                value={currentNote}
+                onChange={(e) => setCurrentNote(e.target.value)}
+                placeholder="Write your reflections here..."
+                rows={6}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <div className="flex justify-end mt-3">
+                <button onClick={handleSaveNote} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition">
+                  Save Note
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </header>
 
-      {showNotes && (
-        <div className="notes-panel">
-          <div className="notes-header">
-            <h3>Notes for {selectedBook} {selectedChapter}</h3>
-            <button onClick={() => setShowNotes(false)}>✕</button>
-          </div>
-          <textarea
-            value={currentNote}
-            onChange={(e) => setCurrentNote(e.target.value)}
-            placeholder="Write your reflections here..."
-            rows={10}
-          />
-          <button onClick={handleSaveNote} className="save-note-btn">
-            Save Note
-          </button>
-        </div>
-      )}
-
-      <main className="bible-full-content">
-        <div className="chapter-header">
-          <h1>{selectedBook} {selectedChapter}</h1>
-          <div className="chapter-nav">
-            <button onClick={handlePrevChapter} className="nav-btn">← Previous</button>
-            <button onClick={handleNextChapter} className="nav-btn">Next →</button>
+      <main className="max-w-7xl mx-auto p-6">
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-3xl font-bold">{selectedBook} {selectedChapter}</h1>
+          <div className="flex gap-3">
+            <button onClick={handlePrevChapter} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+              ← Previous
+            </button>
+            <button onClick={handleNextChapter} className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+              Next →
+            </button>
           </div>
         </div>
 
-        <div 
+        <div
           ref={versesContainerRef}
-          className="verses-container"
+          className="space-y-4"
           style={{ fontSize: `${fontSize}px` }}
         >
           {loading ? (
-            <div className="loading">Loading...</div>
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+            </div>
           ) : error ? (
-            <div className="error">{error}</div>
+            <div className="text-center text-red-500 py-12">{error}</div>
           ) : (
             verses.map(verse => (
-              <div 
-                key={verse.verse} 
-                className="verse"
+              <div
+                key={verse.verse}
+                className="leading-relaxed hover:bg-gray-50 dark:hover:bg-gray-800 rounded p-2 transition cursor-pointer"
                 onClick={() => handleVerseClick(verse)}
               >
-                <span className="verse-num">{verse.verse}</span>
-                <span className="verse-text">{verse.text}</span>
+                <span className="inline-block w-8 font-bold text-primary-500 dark:text-primary-400 mr-2">{verse.verse}</span>
+                <span className="text-gray-800 dark:text-gray-200">{verse.text}</span>
               </div>
             ))
           )}
@@ -495,31 +528,35 @@ const BibleReader = ({
       </main>
 
       {selectionMenu.show && (
-        <div 
-          className="selection-menu"
+        <div
+          className="selection-menu fixed z-50 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1"
           style={{
-            position: 'fixed',
             left: `${selectionMenu.x}px`,
             top: `${selectionMenu.y}px`,
             transform: 'translate(-50%, -100%)'
           }}
         >
-          <button onClick={handleCopy} className="selection-menu-btn copy">
+          <button
+            onClick={handleCopy}
+            className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          >
             📋 Copy
           </button>
-          <button onClick={handleShare} className="selection-menu-btn share">
+          <button
+            onClick={handleShare}
+            className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          >
             📤 Share
           </button>
         </div>
       )}
 
       {showCopyToast && (
-        <div className="copy-success-toast">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-out">
           ✓ Copied to clipboard!
         </div>
       )}
 
-      {/* ShareVerseModal */}
       {showShareModal && selectedVerse && (
         <ShareVerseModal
           verse={selectedVerse}

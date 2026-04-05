@@ -1,33 +1,27 @@
 // src/components/layout/Sidebar.jsx
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { user, isAdmin } = useAuth();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
-  // Member-only links
   const memberLinks = [
     { path: '/dashboard', icon: '🏠', label: 'Dashboard' },
-    { path: '/discover', icon: '🔥', label: 'Discover' },
     { path: '/prayer-wall', icon: '🙏', label: 'Prayer Wall' },
     { path: '/groups', icon: '🤝', label: 'Groups' },
     { path: '/community', icon: '📢', label: 'Community Board' },
-    
   ];
 
-  // Bible tools - VERSE OF THE DAY REMOVED (now on dashboard)
   const bibleLinks = [
     { path: '/bible/reader', icon: '📖', label: 'Bible Reader' },
     { path: '/bible/queue', icon: '⏳', label: 'Verse Queue' },
-    { path: '/bible/bookmarks', icon: '🔖', label: 'Bookmarks' },
+    { path: '/bookmarks', icon: '🔖', label: 'Bookmarks' },
     { path: '/my-submissions', icon: '📤', label: 'My Shared Verses' },
     { path: '/learning', icon: '📚', label: 'Learning Hub' },
   ];
 
-  // Admin-only links
   const adminLinks = [
     { path: '/admin/dashboard', icon: '📊', label: 'Dashboard' },
     { path: '/admin/users', icon: '👥', label: 'User Management' },
@@ -47,49 +41,79 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   return (
     <>
-      {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
+      {/* Overlay (only on mobile when sidebar is open) */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <h3 className="sidebar-title">Menu</h3>
-          <button className="sidebar-close" onClick={onClose}>✕</button>
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed top-0 left-0 h-full w-64 bg-white shadow-xl z-50
+          transform transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:relative md:translate-x-0 md:z-0
+        `}
+      >
+        <div className="flex justify-between items-center p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800">Menu</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-xl md:hidden"
+          >
+            ✕
+          </button>
         </div>
 
-        <nav className="sidebar-nav">
-          {/* For regular users (non-admins) - show member sections */}
+        <nav className="p-4 space-y-6 overflow-y-auto h-full">
           {!isAdmin && (
             <>
               {/* Main Section */}
-              <div className="sidebar-section">
-                <h4 className="sidebar-section-title">Main</h4>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Main
+                </h4>
                 {memberLinks.map(link => (
                   <NavLink
                     key={link.path}
                     to={link.path}
-                    className={({ isActive }) => 
-                      `sidebar-link ${isActive ? 'active' : ''}`
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                        isActive
+                          ? 'bg-primary-50 text-primary-600'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`
                     }
                     onClick={onClose}
                   >
-                    <span className="sidebar-icon">{link.icon}</span>
+                    <span className="text-lg">{link.icon}</span>
                     <span>{link.label}</span>
                   </NavLink>
                 ))}
               </div>
 
               {/* Bible Tools Section */}
-              <div className="sidebar-section">
-                <h4 className="sidebar-section-title">📖 Bible Tools</h4>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  📖 Bible Tools
+                </h4>
                 {bibleLinks.map(link => (
                   <NavLink
                     key={link.path}
                     to={link.path}
-                    className={({ isActive }) => 
-                      `sidebar-link ${isActive ? 'active' : ''}`
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                        isActive
+                          ? 'bg-primary-50 text-primary-600'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`
                     }
                     onClick={onClose}
                   >
-                    <span className="sidebar-icon">{link.icon}</span>
+                    <span className="text-lg">{link.icon}</span>
                     <span>{link.label}</span>
                   </NavLink>
                 ))}
@@ -97,20 +121,25 @@ const Sidebar = ({ isOpen, onClose }) => {
             </>
           )}
 
-          {/* For admins - ONLY show admin panel */}
           {isAdmin && (
-            <div className="sidebar-section">
-              <h4 className="sidebar-section-title">👑 Admin Panel</h4>
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                👑 Admin Panel
+              </h4>
               {adminLinks.map(link => (
                 <NavLink
                   key={link.path}
                   to={link.path}
-                  className={({ isActive }) => 
-                    `sidebar-link ${isActive ? 'active' : ''}`
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? 'bg-primary-50 text-primary-600'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`
                   }
                   onClick={onClose}
                 >
-                  <span className="sidebar-icon">{link.icon}</span>
+                  <span className="text-lg">{link.icon}</span>
                   <span>{link.label}</span>
                 </NavLink>
               ))}

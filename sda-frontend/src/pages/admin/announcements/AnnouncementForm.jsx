@@ -1,7 +1,7 @@
 // src/pages/admin/announcements/AnnouncementForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useAnnouncements } from '../../../hooks/useAnnouncements'; 
-import { ANNOUNCEMENT_TYPES } from '../../../utils/constants';
+import { ANNOUNCEMENT_TYPES } from '../../../constants/constants';
 
 const AnnouncementForm = ({ announcement, onClose, onSuccess }) => {
   const { createNewAnnouncement, updateExistingAnnouncement, loading } = useAnnouncements();

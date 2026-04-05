@@ -11,11 +11,23 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [permissions, setPermissions] = useState([]);
   const [token, setToken] = useState(localStorage.getItem('token'));
+  const [bookmarks, setBookmarks] = useState([]);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
 
   useEffect(() => {
     if (token) {
       fetchProfile();
     } else {
+      // Try to load user from localStorage if no token (for persistence)
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        } catch (e) {
+          console.error('Error parsing stored user:', e);
+        }
+      }
       setLoading(false);
     }
   }, [token]);
@@ -23,11 +35,21 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async () => {
     try {
       const response = await getProfile();
-      const userData = response.data;
-      setUser(userData);
+      // FIX: Access the nested data property
+      const userData = response.data.data;
+      
+      // Ensure location fields are included
+      const userWithLocation = {
+        ...userData,
+        locationName: userData.locationName || null,
+        latitude: userData.latitude || null,
+        longitude: userData.longitude || null,
+      };
+      
+      setUser(userWithLocation);
       
       // Store user in localStorage for persistence
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(userWithLocation));
       
       // Set permissions based on user role
       if (userData.isAdmin) {
@@ -37,14 +59,70 @@ export const AuthProvider = ({ children }) => {
       } else {
         setPermissions([]);
       }
+
+      // Fetch bookmarks if user is logged in
+      await fetchBookmarks();
     } catch (error) {
       console.error('Error fetching profile:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setToken(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch user bookmarks
+  const fetchBookmarks = async () => {
+    if (!user) return;
+    try {
+      const { communityService } = await import('../services/communityService');
+      const response = await communityService.getBookmarks();
+      if (response.success) {
+        setBookmarks(response.data);
+        setBookmarkCount(response.data.length);
+      }
+    } catch (error) {
+      console.error('Error fetching bookmarks:', error);
+    }
+  };
+
+  // Add bookmark
+  const addBookmark = async (postId) => {
+    try {
+      const { communityService } = await import('../services/communityService');
+      const response = await communityService.addBookmark(postId);
+      if (response.success) {
+        await fetchBookmarks();
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: 'Failed to add bookmark' };
+    } catch (error) {
+      console.error('Error adding bookmark:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Remove bookmark
+  const removeBookmark = async (postId) => {
+    try {
+      const { communityService } = await import('../services/communityService');
+      const response = await communityService.removeBookmark(postId);
+      if (response.success) {
+        await fetchBookmarks();
+        return { success: true };
+      }
+      return { success: false, error: 'Failed to remove bookmark' };
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Check if post is bookmarked
+  const isBookmarked = (postId) => {
+    return bookmarks.some(bookmark => bookmark.postId === postId);
   };
 
   const handleLogin = async (email, password) => {
@@ -53,11 +131,19 @@ export const AuthProvider = ({ children }) => {
       const response = await apiLogin({ email, password });
       const { token, ...userData } = response.data;
       
+      // Ensure location fields are included
+      const userWithLocation = {
+        ...userData,
+        locationName: userData.locationName || null,
+        latitude: userData.latitude || null,
+        longitude: userData.longitude || null,
+      };
+      
       // Store token and user
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(userWithLocation));
       setToken(token);
-      setUser(userData);
+      setUser(userWithLocation);
       
       // Set permissions based on user role
       if (userData.isAdmin) {
@@ -67,6 +153,9 @@ export const AuthProvider = ({ children }) => {
       } else {
         setPermissions([]);
       }
+
+      // Fetch bookmarks after login
+      await fetchBookmarks();
       
       return { success: true };
     } catch (error) {
@@ -82,10 +171,18 @@ export const AuthProvider = ({ children }) => {
       const response = await apiRegister(userData);
       const { token, message, ...newUser } = response.data;
       
+      // Ensure location fields are included (will be null initially)
+      const userWithLocation = {
+        ...newUser,
+        locationName: null,
+        latitude: null,
+        longitude: null,
+      };
+      
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      localStorage.setItem('user', JSON.stringify(userWithLocation));
       setToken(token);
-      setUser(newUser);
+      setUser(userWithLocation);
       
       // Regular users have no special permissions
       setPermissions([]);
@@ -101,12 +198,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Update user location (called after location detection)
+  const updateUserLocation = (locationData) => {
+    const updatedUser = {
+      ...user,
+      locationName: locationData.locationName || user?.locationName,
+      latitude: locationData.latitude ?? user?.latitude,
+      longitude: locationData.longitude ?? user?.longitude,
+    };
+    
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    return updatedUser;
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
     setPermissions([]);
+    setBookmarks([]);
+    setBookmarkCount(0);
   };
 
   // Check if user has a specific permission
@@ -119,6 +233,17 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is moderator
   const isModerator = user?.isModerator || false;
+
+  // Get user's display location (city only)
+  const getUserCity = () => {
+    if (!user?.locationName) return null;
+    return user.locationName.split(',')[0].trim();
+  };
+
+  // Check if user has location set
+  const hasLocation = () => {
+    return !!(user?.latitude && user?.longitude);
+  };
 
   const value = {
     user,
@@ -133,6 +258,17 @@ export const AuthProvider = ({ children }) => {
     isModerator,
     permissions,
     token,
+    // NEW: Location helpers
+    updateUserLocation,
+    getUserCity,
+    hasLocation,
+    // NEW: Bookmark helpers
+    bookmarks,
+    bookmarkCount,
+    addBookmark,
+    removeBookmark,
+    isBookmarked,
+    refreshBookmarks: fetchBookmarks,
   };
 
   return (

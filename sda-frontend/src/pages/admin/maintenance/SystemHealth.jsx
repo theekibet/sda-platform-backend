@@ -15,76 +15,50 @@ const SystemHealth = () => {
 
   useEffect(() => {
     fetchAllData();
-
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
+      if (refreshInterval) clearInterval(refreshInterval);
     };
   }, []);
 
   useEffect(() => {
     if (autoRefresh) {
-      const interval = setInterval(() => {
-        fetchAllData(true);
-      }, 30000); // Refresh every 30 seconds
-      
+      const interval = setInterval(() => fetchAllData(true), 30000);
       setRefreshInterval(interval);
     } else {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-        setRefreshInterval(null);
-      }
+      if (refreshInterval) clearInterval(refreshInterval);
+      setRefreshInterval(null);
     }
-
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
+      if (refreshInterval) clearInterval(refreshInterval);
     };
   }, [autoRefresh]);
 
   const fetchAllData = async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
-    
     try {
-      await Promise.all([
-        fetchHealth(silent),
-        fetchDatabaseStats(silent),
-      ]);
+      await Promise.all([fetchHealth(silent), fetchDatabaseStats(silent)]);
     } catch (err) {
-      if (!silent) {
-        setError(err.response?.data?.message || 'Failed to load system health');
-      }
+      if (!silent) setError(err.response?.data?.message || 'Failed to load system health');
     } finally {
       if (!silent) setLoading(false);
     }
   };
 
   const fetchHealth = async (silent = false) => {
-    try {
-      const response = await getSystemHealth();
-      setHealth(response.data);
-    } catch (err) {
-      throw err;
-    }
+    const response = await getSystemHealth();
+    setHealth(response.data);
   };
 
   const fetchDatabaseStats = async (silent = false) => {
-    try {
-      const response = await getDatabaseStats();
-      setDbStats(response.data);
-    } catch (err) {
-      throw err;
-    }
+    const response = await getDatabaseStats();
+    setDbStats(response.data);
   };
 
   const handleClearCache = async () => {
     setActionLoading(true);
     setError(null);
     setSuccess(null);
-    
     try {
       await clearCache();
       setSuccess('Cache cleared successfully!');
@@ -100,7 +74,6 @@ const SystemHealth = () => {
     setActionLoading(true);
     setError(null);
     setSuccess(null);
-    
     try {
       await optimizeDatabase();
       setSuccess('Database optimized successfully!');
@@ -125,52 +98,60 @@ const SystemHealth = () => {
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
     const parts = [];
     if (days > 0) parts.push(`${days}d`);
     if (hours > 0) parts.push(`${hours}h`);
     if (minutes > 0) parts.push(`${minutes}m`);
     if (secs > 0) parts.push(`${secs}s`);
-    
     return parts.join(' ') || '0s';
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'healthy': return '#27ae60';
-      case 'degraded': return '#f39c12';
-      case 'unhealthy': return '#e74c3c';
-      default: return '#95a5a6';
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'unhealthy': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'healthy': return '✅';
+      case 'degraded': return '⚠️';
+      case 'unhealthy': return '🔴';
+      default: return '❓';
     }
   };
 
   if (loading && !health && !dbStats) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingSpinner}></div>
+      <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-primary-500 rounded-full animate-spin mb-2"></div>
         <p>Loading system health...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div className="py-5">
       {/* Header */}
-      <div style={styles.header}>
-        <h3 style={styles.title}>🏥 System Health</h3>
-        <div style={styles.headerControls}>
-          <label style={styles.autoRefreshLabel}>
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="text-lg font-semibold text-gray-800 m-0">🏥 System Health</h3>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="cursor-pointer"
             />
             Auto-refresh (30s)
           </label>
           <button
             onClick={() => fetchAllData()}
             disabled={loading}
-            style={styles.refreshButton}
+            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 disabled:opacity-50 transition"
           >
             🔄 Refresh
           </button>
@@ -179,17 +160,12 @@ const SystemHealth = () => {
 
       {/* Status Banner */}
       {health && (
-        <div style={{
-          ...styles.statusBanner,
-          backgroundColor: getStatusColor(health.status),
-        }}>
-          <span style={styles.statusIcon}>
-            {health.status === 'healthy' ? '✅' : health.status === 'degraded' ? '⚠️' : '🔴'}
-          </span>
-          <span style={styles.statusText}>
+        <div className={`flex items-center gap-2 p-4 rounded-md text-white mb-5 ${getStatusColor(health.status)}`}>
+          <span className="text-xl">{getStatusIcon(health.status)}</span>
+          <span className="flex-1 text-sm">
             System Status: <strong>{health.status?.toUpperCase()}</strong>
           </span>
-          <span style={styles.statusTime}>
+          <span className="text-xs opacity-90">
             Last updated: {new Date(health.timestamp).toLocaleTimeString()}
           </span>
         </div>
@@ -197,45 +173,47 @@ const SystemHealth = () => {
 
       {/* Messages */}
       {error && (
-        <div style={styles.error}>
+        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-md mb-4">
           <span>⚠️</span>
           <span>{error}</span>
         </div>
       )}
-
       {success && (
-        <div style={styles.success}>
+        <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-md mb-4">
           <span>✅</span>
           <span>{success}</span>
         </div>
       )}
 
       {/* Tabs */}
-      <div style={styles.tabs}>
+      <div className="flex gap-2 mb-5 border-b border-gray-200 pb-2">
         <button
           onClick={() => setActiveTab('health')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'health' ? styles.activeTab : {}),
-          }}
+          className={`px-3 py-1.5 rounded text-sm transition ${
+            activeTab === 'health'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-600 hover:bg-gray-100'
+          }`}
         >
           Health Overview
         </button>
         <button
           onClick={() => setActiveTab('database')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'database' ? styles.activeTab : {}),
-          }}
+          className={`px-3 py-1.5 rounded text-sm transition ${
+            activeTab === 'database'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-600 hover:bg-gray-100'
+          }`}
         >
           Database Stats
         </button>
         <button
           onClick={() => setActiveTab('performance')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'performance' ? styles.activeTab : {}),
-          }}
+          className={`px-3 py-1.5 rounded text-sm transition ${
+            activeTab === 'performance'
+              ? 'bg-primary-500 text-white'
+              : 'bg-transparent text-gray-600 hover:bg-gray-100'
+          }`}
         >
           Performance
         </button>
@@ -243,70 +221,67 @@ const SystemHealth = () => {
 
       {/* Health Overview Tab */}
       {activeTab === 'health' && health && (
-        <div style={styles.tabContent}>
-          <div style={styles.healthGrid}>
+        <div className="mt-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
             {/* Database Status */}
-            <div style={styles.healthCard}>
-              <h4 style={styles.cardTitle}>🗄️ Database</h4>
-              <div style={styles.healthMetric}>
-                <span style={styles.metricLabel}>Status:</span>
-                <span style={{
-                  ...styles.metricValue,
-                  color: health.database?.status === 'healthy' ? '#27ae60' : '#e74c3c',
-                }}>
+            <div className="p-5 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3">🗄️ Database</h4>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-xs text-gray-500">Status:</span>
+                <span className={`text-xs font-medium ${health.database?.status === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>
                   {health.database?.status}
                 </span>
               </div>
-              <div style={styles.healthMetric}>
-                <span style={styles.metricLabel}>Latency:</span>
-                <span style={styles.metricValue}>{health.database?.latency}</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-xs text-gray-500">Latency:</span>
+                <span className="text-xs font-medium text-gray-800">{health.database?.latency}</span>
               </div>
             </div>
 
             {/* Server Stats */}
-            <div style={styles.healthCard}>
-              <h4 style={styles.cardTitle}>⚙️ Server</h4>
-              <div style={styles.healthMetric}>
-                <span style={styles.metricLabel}>Uptime:</span>
-                <span style={styles.metricValue}>{formatUptime(health.stats?.uptime)}</span>
+            <div className="p-5 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3">⚙️ Server</h4>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-xs text-gray-500">Uptime:</span>
+                <span className="text-xs font-medium text-gray-800">{formatUptime(health.stats?.uptime)}</span>
               </div>
-              <div style={styles.healthMetric}>
-                <span style={styles.metricLabel}>Memory Usage:</span>
-                <span style={styles.metricValue}>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-xs text-gray-500">Memory Usage:</span>
+                <span className="text-xs font-medium text-gray-800">
                   {formatBytes(health.stats?.memory?.heapUsed)} / {formatBytes(health.stats?.memory?.heapTotal)}
                 </span>
               </div>
             </div>
 
             {/* User Stats */}
-            <div style={styles.healthCard}>
-              <h4 style={styles.cardTitle}>👥 Users</h4>
-              <div style={styles.healthMetric}>
-                <span style={styles.metricLabel}>Total Users:</span>
-                <span style={styles.metricValue}>{health.stats?.totalUsers}</span>
+            <div className="p-5 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3">👥 Users</h4>
+              <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                <span className="text-xs text-gray-500">Total Users:</span>
+                <span className="text-xs font-medium text-gray-800">{health.stats?.totalUsers}</span>
               </div>
-              <div style={styles.healthMetric}>
-                <span style={styles.metricLabel}>Active Today:</span>
-                <span style={styles.metricValue}>{health.stats?.activeToday}</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-xs text-gray-500">Active Today:</span>
+                <span className="text-xs font-medium text-gray-800">{health.stats?.activeToday}</span>
               </div>
             </div>
           </div>
 
           {/* Quick Actions */}
-          <div style={styles.actionsCard}>
-            <h4 style={styles.cardTitle}>🛠️ Quick Actions</h4>
-            <div style={styles.actionButtons}>
+          <div className="p-5 bg-primary-50 rounded-lg">
+            <h4 className="text-sm font-semibold text-gray-800 mb-3">🛠️ Quick Actions</h4>
+            <div className="flex gap-3">
               <button
                 onClick={handleClearCache}
                 disabled={actionLoading}
-                style={styles.actionButton}
+                className="px-4 py-2 bg-primary-500 text-white rounded text-sm hover:bg-primary-600 disabled:opacity-50 transition"
               >
                 {actionLoading ? 'Clearing...' : 'Clear Cache'}
               </button>
               <button
                 onClick={handleOptimizeDatabase}
                 disabled={actionLoading}
-                style={styles.actionButton}
+                className="px-4 py-2 bg-primary-500 text-white rounded text-sm hover:bg-primary-600 disabled:opacity-50 transition"
               >
                 {actionLoading ? 'Optimizing...' : 'Optimize Database'}
               </button>
@@ -317,42 +292,46 @@ const SystemHealth = () => {
 
       {/* Database Stats Tab */}
       {activeTab === 'database' && dbStats && (
-        <div style={styles.tabContent}>
-          <div style={styles.dbStatsGrid}>
-            <div style={styles.dbStatCard}>
-              <span style={styles.dbStatValue}>{dbStats.totalRecords?.toLocaleString()}</span>
-              <span style={styles.dbStatLabel}>Total Records</span>
+        <div className="mt-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="p-5 bg-gray-50 rounded-lg text-center">
+              <span className="block text-3xl font-bold text-primary-500 mb-1">{dbStats.totalRecords?.toLocaleString()}</span>
+              <span className="text-xs text-gray-500">Total Records</span>
             </div>
-            <div style={styles.dbStatCard}>
-              <span style={styles.dbStatValue}>{dbStats.tables?.length || 0}</span>
-              <span style={styles.dbStatLabel}>Tables</span>
+            <div className="p-5 bg-gray-50 rounded-lg text-center">
+              <span className="block text-3xl font-bold text-primary-500 mb-1">{dbStats.tables?.length || 0}</span>
+              <span className="text-xs text-gray-500">Tables</span>
             </div>
-            <div style={styles.dbStatCard}>
-              <span style={styles.dbStatValue}>{dbStats.databaseSize}</span>
-              <span style={styles.dbStatLabel}>Database Size</span>
+            <div className="p-5 bg-gray-50 rounded-lg text-center">
+              <span className="block text-3xl font-bold text-primary-500 mb-1">{dbStats.databaseSize}</span>
+              <span className="text-xs text-gray-500">Database Size</span>
             </div>
           </div>
 
-          <h4 style={styles.sectionTitle}>Table Statistics</h4>
-          <div style={styles.tableStats}>
-            {dbStats.tables?.map((table, index) => (
-              <div key={index} style={styles.tableRow}>
-                <span style={styles.tableName}>{table.table}</span>
-                <div style={styles.tableBar}>
-                  <div style={{
-                    ...styles.tableBarFill,
-                    width: `${(table.count / Math.max(...dbStats.tables.map(t => t.count))) * 100}%`,
-                  }} />
+          <h4 className="text-sm font-semibold text-gray-800 mb-3">Table Statistics</h4>
+          <div className="space-y-2 mb-5">
+            {dbStats.tables?.map((table, idx) => {
+              const maxCount = Math.max(...dbStats.tables.map(t => t.count));
+              const widthPercent = (table.count / maxCount) * 100;
+              return (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="w-32 text-xs text-gray-500 capitalize">{table.table}</span>
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary-500 rounded-full"
+                      style={{ width: `${widthPercent}%` }}
+                    />
+                  </div>
+                  <span className="w-20 text-xs text-gray-800 text-right">{table.count.toLocaleString()} rows</span>
                 </div>
-                <span style={styles.tableCount}>{table.count.toLocaleString()} rows</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <button
             onClick={handleOptimizeDatabase}
             disabled={actionLoading}
-            style={styles.optimizeButton}
+            className="w-full py-3 bg-yellow-500 text-white rounded-md text-sm hover:bg-yellow-600 disabled:opacity-50 transition"
           >
             {actionLoading ? 'Optimizing...' : '🔄 Optimize Database'}
           </button>
@@ -361,19 +340,19 @@ const SystemHealth = () => {
 
       {/* Performance Tab */}
       {activeTab === 'performance' && health && (
-        <div style={styles.tabContent}>
-          <div style={styles.performanceGrid}>
+        <div className="mt-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
             {/* Memory Usage Chart */}
-            <div style={styles.performanceCard}>
-              <h4 style={styles.cardTitle}>📊 Memory Usage</h4>
-              <div style={styles.memoryChart}>
-                <div style={styles.memoryBar}>
-                  <div style={{
-                    ...styles.memoryFill,
-                    width: `${(health.stats?.memory?.heapUsed / health.stats?.memory?.heapTotal) * 100}%`,
-                  }} />
+            <div className="p-5 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3">📊 Memory Usage</h4>
+              <div className="mt-2">
+                <div className="h-5 bg-gray-200 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-primary-500 rounded-full transition-all"
+                    style={{ width: `${(health.stats?.memory?.heapUsed / health.stats?.memory?.heapTotal) * 100}%` }}
+                  />
                 </div>
-                <div style={styles.memoryLabels}>
+                <div className="flex justify-between text-xs text-gray-500">
                   <span>Used: {formatBytes(health.stats?.memory?.heapUsed)}</span>
                   <span>Total: {formatBytes(health.stats?.memory?.heapTotal)}</span>
                 </div>
@@ -381,28 +360,28 @@ const SystemHealth = () => {
             </div>
 
             {/* Response Time */}
-            <div style={styles.performanceCard}>
-              <h4 style={styles.cardTitle}>⏱️ Response Time</h4>
-              <div style={styles.responseTime}>
-                <span style={styles.responseValue}>~45ms</span>
-                <span style={styles.responseLabel}>Average API response</span>
+            <div className="p-5 bg-gray-50 rounded-lg text-center">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3">⏱️ Response Time</h4>
+              <div className="mt-2">
+                <span className="block text-3xl font-bold text-primary-500 mb-1">~45ms</span>
+                <span className="text-xs text-gray-500">Average API response</span>
               </div>
             </div>
 
             {/* Request Rate */}
-            <div style={styles.performanceCard}>
-              <h4 style={styles.cardTitle}>📈 Request Rate</h4>
-              <div style={styles.requestRate}>
-                <span style={styles.rateValue}>~120</span>
-                <span style={styles.rateLabel}>requests/minute</span>
+            <div className="p-5 bg-gray-50 rounded-lg text-center">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3">📈 Request Rate</h4>
+              <div className="mt-2">
+                <span className="block text-3xl font-bold text-primary-500 mb-1">~120</span>
+                <span className="text-xs text-gray-500">requests/minute</span>
               </div>
             </div>
           </div>
 
           {/* Recommendations */}
-          <div style={styles.recommendationsCard}>
-            <h4 style={styles.cardTitle}>💡 Recommendations</h4>
-            <ul style={styles.recommendationsList}>
+          <div className="p-5 bg-yellow-50 rounded-lg">
+            <h4 className="text-sm font-semibold text-yellow-800 mb-3">💡 Recommendations</h4>
+            <ul className="list-disc pl-5 text-xs text-yellow-700 space-y-1">
               {health.status === 'degraded' && (
                 <li>⚠️ System performance is degraded - consider scaling resources</li>
               )}
@@ -420,345 +399,6 @@ const SystemHealth = () => {
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '20px 0',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '40px',
-    color: '#666',
-  },
-  loadingSpinner: {
-    width: '30px',
-    height: '30px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '10px',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  title: {
-    margin: 0,
-    color: '#333',
-    fontSize: '18px',
-    fontWeight: '600',
-  },
-  headerControls: {
-    display: 'flex',
-    gap: '15px',
-    alignItems: 'center',
-  },
-  autoRefreshLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    fontSize: '13px',
-    color: '#666',
-    cursor: 'pointer',
-  },
-  refreshButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#e0e0e0',
-    },
-  },
-  statusBanner: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '15px',
-    borderRadius: '5px',
-    color: 'white',
-    marginBottom: '20px',
-  },
-  statusIcon: {
-    fontSize: '20px',
-  },
-  statusText: {
-    flex: 1,
-    fontSize: '14px',
-  },
-  statusTime: {
-    fontSize: '12px',
-    opacity: 0.9,
-  },
-  error: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  success: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  tabs: {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '20px',
-    borderBottom: '2px solid #f0f0f0',
-    paddingBottom: '10px',
-  },
-  tab: {
-    padding: '6px 12px',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    backgroundColor: 'transparent',
-    color: '#666',
-    fontSize: '13px',
-    '&:hover': {
-      backgroundColor: '#f0f0f0',
-    },
-  },
-  activeTab: {
-    backgroundColor: '#667eea',
-    color: 'white',
-  },
-  tabContent: {
-    marginTop: '20px',
-  },
-  healthGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '20px',
-  },
-  healthCard: {
-    padding: '20px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  cardTitle: {
-    margin: '0 0 15px 0',
-    color: '#333',
-    fontSize: '15px',
-    fontWeight: '600',
-  },
-  healthMetric: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '8px 0',
-    borderBottom: '1px solid #e0e0e0',
-    '&:last-child': {
-      borderBottom: 'none',
-    },
-  },
-  metricLabel: {
-    fontSize: '13px',
-    color: '#666',
-  },
-  metricValue: {
-    fontSize: '13px',
-    fontWeight: '500',
-  },
-  actionsCard: {
-    padding: '20px',
-    backgroundColor: '#f0f4ff',
-    borderRadius: '8px',
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: '10px',
-  },
-  actionButton: {
-    padding: '8px 16px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '13px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#5a6fd8',
-    },
-    '&:disabled': {
-      opacity: 0.6,
-      cursor: 'not-allowed',
-    },
-  },
-  dbStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-    gap: '15px',
-    marginBottom: '25px',
-  },
-  dbStatCard: {
-    padding: '20px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    textAlign: 'center',
-  },
-  dbStatValue: {
-    display: 'block',
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#667eea',
-    marginBottom: '5px',
-  },
-  dbStatLabel: {
-    fontSize: '12px',
-    color: '#666',
-  },
-  sectionTitle: {
-    margin: '0 0 15px 0',
-    color: '#333',
-    fontSize: '15px',
-  },
-  tableStats: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    marginBottom: '20px',
-  },
-  tableRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  tableName: {
-    width: '150px',
-    fontSize: '13px',
-    color: '#666',
-    textTransform: 'capitalize',
-  },
-  tableBar: {
-    flex: 1,
-    height: '8px',
-    backgroundColor: '#e0e0e0',
-    borderRadius: '4px',
-    overflow: 'hidden',
-  },
-  tableBarFill: {
-    height: '100%',
-    backgroundColor: '#667eea',
-  },
-  tableCount: {
-    width: '80px',
-    fontSize: '12px',
-    color: '#333',
-    textAlign: 'right',
-  },
-  optimizeButton: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#f39c12',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#e67e22',
-    },
-    '&:disabled': {
-      opacity: 0.6,
-      cursor: 'not-allowed',
-    },
-  },
-  performanceGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '20px',
-  },
-  performanceCard: {
-    padding: '20px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  memoryChart: {
-    marginTop: '10px',
-  },
-  memoryBar: {
-    height: '20px',
-    backgroundColor: '#e0e0e0',
-    borderRadius: '10px',
-    overflow: 'hidden',
-    marginBottom: '10px',
-  },
-  memoryFill: {
-    height: '100%',
-    backgroundColor: '#667eea',
-    transition: 'width 0.3s',
-  },
-  memoryLabels: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '12px',
-    color: '#666',
-  },
-  responseTime: {
-    textAlign: 'center',
-    padding: '10px',
-  },
-  responseValue: {
-    display: 'block',
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#667eea',
-    marginBottom: '5px',
-  },
-  responseLabel: {
-    fontSize: '12px',
-    color: '#666',
-  },
-  requestRate: {
-    textAlign: 'center',
-    padding: '10px',
-  },
-  rateValue: {
-    display: 'block',
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#667eea',
-    marginBottom: '5px',
-  },
-  rateLabel: {
-    fontSize: '12px',
-    color: '#666',
-  },
-  recommendationsCard: {
-    padding: '20px',
-    backgroundColor: '#fff3cd',
-    borderRadius: '8px',
-  },
-  recommendationsList: {
-    margin: 0,
-    paddingLeft: '20px',
-    color: '#856404',
-    fontSize: '13px',
-    lineHeight: '1.8',
-  },
 };
 
 export default SystemHealth;

@@ -1,20 +1,4 @@
-// src/modules/groups/dto/create-group.dto.ts
-import { IsString, IsOptional, IsBoolean, IsEnum, IsNotEmpty } from 'class-validator';
-
-// Update the enum to include string values
-export enum GroupCategory {
-  MUSIC = 'MUSIC',
-  BIBLE_STUDY = 'BIBLE_STUDY',
-  PRAYER = 'PRAYER',
-  MENTAL_HEALTH = 'MENTAL_HEALTH',
-  SPORTS = 'SPORTS',
-  ARTS = 'ARTS',
-  CAREER = 'CAREER',
-  OUTREACH = 'OUTREACH',
-  ONLINE = 'ONLINE',
-  OTHER = 'OTHER',
-  GENERAL = 'GENERAL',
-}
+import { IsString, IsOptional, IsBoolean, IsNotEmpty, MaxLength, MinLength, IsArray } from 'class-validator';
 
 export enum MeetingType {
   ONLINE = 'online',
@@ -25,14 +9,20 @@ export enum MeetingType {
 export class CreateGroupDto {
   @IsString()
   @IsNotEmpty({ message: 'Group name is required' })
+  @MinLength(3, { message: 'Group name must be at least 3 characters' })
+  @MaxLength(100, { message: 'Group name cannot exceed 100 characters' })
   name: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Group description is required' })
+  @MaxLength(2000, { message: 'Description cannot exceed 2000 characters' })
   description: string;
 
-  @IsEnum(GroupCategory, { message: 'Invalid category' })
-  category: GroupCategory;
+  // REMOVED: @IsEnum(GroupCategory) - replaced with flexible tags
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tagNames?: string[]; // e.g., ["prayer", "anxiety", "support"]
 
   @IsOptional()
   @IsBoolean()
@@ -40,10 +30,12 @@ export class CreateGroupDto {
 
   @IsOptional()
   @IsString()
-  location?: string; // Display location (e.g., "Nairobi, Kenya" or "Online")
+  @MaxLength(200, { message: 'Location cannot exceed 200 characters' })
+  location?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000, { message: 'Rules cannot exceed 5000 characters' })
   rules?: string;
 
   @IsOptional()
@@ -52,28 +44,14 @@ export class CreateGroupDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500, { message: 'Image URL cannot exceed 500 characters' })
   imageUrl?: string;
 
-  // ============ NEW FIELDS ============
-
-  /**
-   * Explicitly marks if this group is location-specific
-   * Only set to true if the group genuinely serves a specific geographic area
-   * Examples:
-   * - true: "Nairobi CBD Young Professionals" (meets in person)
-   * - false: "Music Ministry Discussion" (interest-based, location-independent)
-   */
   @IsOptional()
   @IsBoolean()
   isLocationBased?: boolean;
 
-  /**
-   * How the group primarily meets
-   * - online: Virtual meetings only
-   * - in-person: Physical meetups required
-   * - hybrid: Both online and in-person options
-   */
   @IsOptional()
-  @IsEnum(MeetingType, { message: 'Invalid meeting type' })
-  meetingType?: MeetingType;
+  @IsString() // Changed from IsEnum to allow any string, or keep MeetingType enum
+  meetingType?: MeetingType | string;
 }

@@ -5,7 +5,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import Avatar from '../common/Avatar';
 import NotificationDropdown from '../notifications/NotificationDropdown';
-import './Navbar.css';
 
 const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
@@ -14,6 +13,7 @@ const Navbar = ({ onMenuClick }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const notificationRef = useRef(null);
   const profileRef = useRef(null);
@@ -43,12 +43,21 @@ const Navbar = ({ onMenuClick }) => {
     navigate('/');
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+      setIsMobileMenuOpen(false);
+    }
+  };
+
   return (
-    <nav className="navbar">
-      <div className="nav-container">
+    <nav className="fixed top-0 left-0 w-full bg-white shadow-sm z-50">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14 md:h-16">
         {/* Hamburger Menu Button (for mobile) */}
-        <button 
-          className="mobile-menu-button" 
+        <button
+          className="md:hidden text-2xl p-2 text-gray-600 hover:text-gray-800"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           aria-label="Toggle menu"
         >
@@ -56,88 +65,162 @@ const Navbar = ({ onMenuClick }) => {
         </button>
 
         {/* Logo - always goes to appropriate home */}
-        <Link to={user ? '/dashboard' : '/'} className="logo">
-          <span className="logo-icon">✝️</span>
-          <span className="logo-text">SDA Youth Connect</span>
+        <Link to={user ? '/dashboard' : '/'} className="flex items-center gap-2 font-bold text-xl">
+          <span className="text-2xl">✝️</span>
+          <span className="bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
+            Imani
+          </span>
         </Link>
 
-        {/* Desktop Navigation - EMPTY for now */}
-        <div className="nav-links">
-          {/* No links here - keeping space for future */}
+        {/* Search Bar - Desktop */}
+        <div className="hidden md:flex flex-1 max-w-md mx-4">
+          <form onSubmit={handleSearchSubmit} className="w-full">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search discussions, groups, tags..."
+                className="w-full px-4 py-2 pl-10 pr-4 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </form>
         </div>
 
         {/* User Menu / Auth Buttons */}
-        <div className="user-section">
+        <div className="flex items-center gap-3">
           {user ? (
             <>
               {/* Notification Bell with Badge */}
-              <div className="notification-wrapper" ref={notificationRef}>
-                <button 
-                  className="notification-bell"
+              <div className="relative" ref={notificationRef}>
+                <button
+                  className="relative text-xl p-1 text-gray-600 hover:text-gray-800"
                   onClick={() => setShowNotifications(!showNotifications)}
                   aria-label="Notifications"
                 >
-                  <span className="bell-icon">🔔</span>
+                  <span>🔔</span>
                   {unreadCount > 0 && (
-                    <span className="notification-badge">{unreadCount}</span>
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
                   )}
                 </button>
 
                 {/* Notifications Dropdown */}
                 {showNotifications && (
-                  <NotificationDropdown onClose={() => setShowNotifications(false)} />
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <NotificationDropdown onClose={() => setShowNotifications(false)} />
+                  </div>
                 )}
               </div>
 
               {/* Profile Dropdown */}
-              <div className="profile-container" ref={profileRef}>
-                <button 
+              <div className="relative" ref={profileRef}>
+                <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="profile-button"
+                  className="flex items-center gap-2 p-1 rounded-md hover:bg-gray-100"
                   aria-label="Profile menu"
                 >
                   <Avatar user={user} size="small" />
-                  <span className="user-name">{user.name}</span>
-                  <span className="dropdown-icon">▼</span>
+                  <span className="hidden md:inline text-sm font-medium text-gray-700">{user.name}</span>
+                  <span className="text-xs text-gray-500">▼</span>
                 </button>
                 
                 {isProfileMenuOpen && (
-                  <div className="dropdown-menu">
-                    <Link to="/dashboard" className="dropdown-item" onClick={() => setIsProfileMenuOpen(false)}>
-                      <span className="dropdown-icon">🏠</span> Dashboard
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <span>🏠</span> Dashboard
                     </Link>
-                    <Link to="/profile" className="dropdown-item" onClick={() => setIsProfileMenuOpen(false)}>
-                      <span className="dropdown-icon">👤</span> My Profile
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <span>👤</span> My Profile
                     </Link>
-                    <Link to="/my-submissions" className="dropdown-item" onClick={() => setIsProfileMenuOpen(false)}>
-                      <span className="dropdown-icon">📤</span> My Verses
+                    <Link
+                      to="/bookmarks"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <span>🔖</span> Bookmarks
                     </Link>
-                    <Link to="/community" className="dropdown-item" onClick={() => setIsProfileMenuOpen(false)}>
-                      <span className="dropdown-icon">👥</span> Community
+                    <Link
+                      to="/my-submissions"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <span>📤</span> My Verses
                     </Link>
-                    <Link to="/learning" className="dropdown-item" onClick={() => setIsProfileMenuOpen(false)}>
-                      <span className="dropdown-icon">📚</span> Learning Hub
+                    <Link
+                      to="/community"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <span>👥</span> Community
+                    </Link>
+                    <Link
+                      to="/learning"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <span>📚</span> Learning Hub
                     </Link>
                     {user.isAdmin && (
                       <>
-                        <hr className="dropdown-divider" />
-                        <Link to="/admin/dashboard" className="dropdown-item" onClick={() => setIsProfileMenuOpen(false)}>
-                          <span className="dropdown-icon">⚙️</span> Admin Panel
+                        <hr className="my-1 border-gray-200" />
+                        <Link
+                          to="/admin/dashboard"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          <span>⚙️</span> Admin Panel
                         </Link>
                       </>
                     )}
-                    <hr className="dropdown-divider" />
-                    <button onClick={handleLogout} className="dropdown-item">
-                      <span className="dropdown-icon">🚪</span> Logout
+                    <hr className="my-1 border-gray-200" />
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <span>🚪</span> Logout
                     </button>
                   </div>
                 )}
               </div>
             </>
           ) : (
-            <div className="auth-buttons">
-              <button onClick={() => navigate('/login')} className="login-button">Login</button>
-              <button onClick={() => navigate('/register')} className="register-button">Sign Up</button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/login')}
+                className="px-4 py-1.5 text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => navigate('/register')}
+                className="px-4 py-1.5 text-sm font-medium text-white bg-primary-500 rounded-md hover:bg-primary-600"
+              >
+                Sign Up
+              </button>
             </div>
           )}
         </div>
@@ -145,62 +228,134 @@ const Navbar = ({ onMenuClick }) => {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="mobile-menu">
-          {/* Mobile menu for logged-in users */}
+        <div className="absolute top-full left-0 w-full bg-white shadow-lg border-t border-gray-200 p-4 flex flex-col space-y-2 md:hidden">
+          {/* Search bar in mobile menu (optional, but convenient) */}
+          <form onSubmit={handleSearchSubmit} className="mb-2">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full px-4 py-2 pl-10 pr-4 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </form>
+
           {user ? (
             <>
-              <Link to="/dashboard" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">🏠</span> Dashboard
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>🏠</span> Dashboard
               </Link>
-              <Link to="/profile" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">👤</span> My Profile
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>👤</span> My Profile
               </Link>
-              <Link to="/my-submissions" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">📤</span> My Verses
+              <Link
+                to="/bookmarks"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>🔖</span> Bookmarks
               </Link>
-              <Link to="/community" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">👥</span> Community
+              <Link
+                to="/my-submissions"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>📤</span> My Verses
               </Link>
-              <Link to="/learning" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">📚</span> Learning Hub
+              <Link
+                to="/community"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>👥</span> Community
+              </Link>
+              <Link
+                to="/learning"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>📚</span> Learning Hub
               </Link>
               {user.isAdmin && (
                 <>
-                  <hr className="mobile-divider" />
-                  <Link to="/admin/dashboard" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                    <span className="mobile-link-icon">⚙️</span> Admin Panel
+                  <hr className="border-gray-200" />
+                  <Link
+                    to="/admin/dashboard"
+                    className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <span>⚙️</span> Admin Panel
                   </Link>
                 </>
               )}
-              <hr className="mobile-divider" />
-              <button onClick={() => {
-                handleLogout();
-                setIsMobileMenuOpen(false);
-              }} className="mobile-logout-button">
-                <span className="mobile-link-icon">🚪</span> Logout
+              <hr className="border-gray-200" />
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-2 w-full text-left px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                <span>🚪</span> Logout
               </button>
             </>
           ) : (
-            // Mobile menu for logged-out users
             <>
-              <Link to="/" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">🏠</span> Home
+              <Link
+                to="/"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>🏠</span> Home
               </Link>
-              <Link to="/about" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">ℹ️</span> About
+              <Link
+                to="/about"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>ℹ️</span> About
               </Link>
-              <Link to="/contact" className="mobile-link" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="mobile-link-icon">📧</span> Contact
+              <Link
+                to="/contact"
+                className="flex items-center gap-2 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <span>📧</span> Contact
               </Link>
-              <hr className="mobile-divider" />
-              <button onClick={() => {
-                navigate('/login');
-                setIsMobileMenuOpen(false);
-              }} className="mobile-login-button">Login</button>
-              <button onClick={() => {
-                navigate('/register');
-                setIsMobileMenuOpen(false);
-              }} className="mobile-register-button">Sign Up</button>
+              <hr className="border-gray-200" />
+              <button
+                onClick={() => {
+                  navigate('/login');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-2 text-primary-600 hover:bg-gray-100 rounded-md"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => {
+                  navigate('/register');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600"
+              >
+                Sign Up
+              </button>
             </>
           )}
         </div>

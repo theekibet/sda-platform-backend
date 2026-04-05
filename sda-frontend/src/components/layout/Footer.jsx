@@ -10,9 +10,9 @@ const Footer = () => {
         <div style={styles.grid}>
           {/* About Section */}
           <div style={styles.section}>
-            <h4 style={styles.title}>SDA Youth Connect</h4>
+            <h4 style={styles.title}>Imani</h4>
             <p style={styles.description}>
-              Building a stronger SDA youth community across Kenya through faith, 
+              Building a stronger youth community across Kenya through faith, 
               fellowship, and meaningful connections.
             </p>
           </div>
