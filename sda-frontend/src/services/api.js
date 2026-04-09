@@ -141,21 +141,24 @@ export const getUsers = (params = {}) => {
   const queryParams = new URLSearchParams();
   // Only add parameters that have values
   if (params.search) queryParams.append('search', params.search);
-  if (params.isAdmin !== undefined) queryParams.append('isAdmin', params.isAdmin);
+  // ✅ CHANGED: isAdmin → isModerator
+  if (params.isModerator !== undefined) queryParams.append('isModerator', params.isModerator);
   if (params.isSuspended !== undefined) queryParams.append('isSuspended', params.isSuspended);
   if (params.page) queryParams.append('page', params.page);
   if (params.limit) queryParams.append('limit', params.limit);
   if (params.sortBy) queryParams.append('sortBy', params.sortBy);
   if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
   const url = `/admin/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  console.log('Fetching users with URL:', url); // Debug log
+  console.log('Fetching users with URL:', url);
   return API.get(url);
 };
 export const getUserDetails = (userId) => API.get(`/admin/users/${userId}`);
 export const suspendUser = (userId, data) => API.post(`/admin/users/${userId}/suspend`, data);
-export const toggleAdmin = (userId) => API.post(`/admin/users/${userId}/toggle-admin`);
+// ✅ CHANGED: toggleAdmin → toggleModerator, endpoint updated
+export const toggleModerator = (userId) => API.post(`/admin/users/${userId}/toggle-moderator`);
 export const adminResetPassword = (data) => API.post('/admin/users/reset-password', data);
 export const deleteUser = (userId) => API.delete(`/admin/users/${userId}`);
+// ✅ CHANGED: bulk action strings should be 'makeModerator'/'removeModerator' (backend expects those)
 export const bulkUserAction = (action, userIds, data) => 
   API.post('/admin/users/bulk', { action, userIds, data });
 
@@ -179,7 +182,6 @@ export const assignReport = (reportId, assigneeId) =>
 // ============ ADMIN MODERATION ============
 export const getContentModerationQueue = (params = {}) => {
   const queryParams = new URLSearchParams();
-  // Match the parameter names EXACTLY as in your DTO
   if (params.type) queryParams.append('type', params.type);
   if (params.status) queryParams.append('status', params.status);
   if (params.severity) queryParams.append('severity', params.severity);
@@ -314,7 +316,6 @@ export const exportAnalytics = (type, dateRange, format = 'csv') => {
 };
 
 // ============ COMMUNITY POSTS ENDPOINTS ============
-// Get all community posts
 export const getCommunityPosts = (params = {}) => {
   const queryParams = new URLSearchParams();
   if (params.type) queryParams.append('type', params.type);
@@ -325,65 +326,32 @@ export const getCommunityPosts = (params = {}) => {
   if (params.radius) queryParams.append('radius', params.radius);
   return API.get(`/community/posts?${queryParams.toString()}`);
 };
-
-// Get local posts within radius
 export const getLocalCommunityPosts = (radius = 10, limit = 10) => {
   return API.get(`/community/posts/local?radius=${radius}&limit=${limit}`);
 };
-
-// Get single community post
 export const getCommunityPost = (postId) => API.get(`/community/posts/${postId}`);
-
-// Create community post
 export const createCommunityPost = (data) => API.post('/community/posts', data);
-
-// Update community post
 export const updateCommunityPost = (postId, data) => API.put(`/community/posts/${postId}`, data);
-
-// Delete community post
 export const deleteCommunityPost = (postId) => API.delete(`/community/posts/${postId}`);
-
-// Add response to community post
 export const addCommunityResponse = (postId, data) => API.post(`/community/posts/${postId}/responses`, data);
-
-// Remove response from community post
 export const removeCommunityResponse = (postId) => API.delete(`/community/posts/${postId}/responses`);
-
-// Get posts by user
 export const getUserCommunityPosts = (userId, page = 1) => API.get(`/community/users/${userId}/posts?page=${page}`);
-
-// Update donation progress
 export const updateDonationProgress = (postId, amount) => API.patch(`/community/posts/${postId}/donation`, { amount });
-
-// Get trending posts
 export const getTrendingCommunityPosts = (timeframe = 'week', limit = 10) => 
   API.get(`/community/posts/trending?timeframe=${timeframe}&limit=${limit}`);
-
-// Get post analytics
 export const getPostAnalytics = (postId) => API.get(`/community/posts/${postId}/analytics`);
 
 // ============ COMMUNITY REPORTS ENDPOINTS ============
-// Report a community post
 export const reportCommunityPost = (postId, data) => API.post(`/community/reports/${postId}`, data);
 
 // ============ BOOKMARKS ENDPOINTS ============
-// Get bookmark status for a post
 export const getBookmarkStatus = (postId) => API.get(`/community/posts/${postId}/bookmark-status`);
-
-// Add bookmark
 export const addBookmark = (postId) => API.post(`/community/posts/${postId}/bookmark`);
-
-// Remove bookmark
 export const removeBookmark = (postId) => API.delete(`/community/posts/${postId}/bookmark`);
-
-// Get all user bookmarks
 export const getBookmarks = () => API.get('/community/bookmarks');
 
 // ============ RATE LIMIT ENDPOINTS ============
-// Check rate limit for an action
 export const checkRateLimit = (action) => API.get(`/rate-limit/check/${action}`);
-
-// Get rate limit status
 export const getRateLimitStatus = () => API.get('/rate-limit/status');
 
 export { API };

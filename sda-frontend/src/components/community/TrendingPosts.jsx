@@ -2,6 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { communityService } from '../../services/communityService';
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const getImageUrl = (avatarUrl) => {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return `${API_BASE_URL}${avatarUrl}`;
+};
+
 const TrendingPosts = ({ limit = 5, onPostClick }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +95,13 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
     return text.substring(0, maxLength) + '...';
   };
 
+  const getAuthorInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-3 p-4 text-gray-500">
@@ -127,6 +143,8 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
           const supportCount = getSupportCount(post);
           const typeIcon = getPostTypeIcon(post.type);
           const typeColor = getPostTypeColor(post.type);
+          const avatarUrl = getImageUrl(post.author?.avatarUrl);
+          const authorInitials = getAuthorInitials(post.author?.name);
           
           return (
             <div
@@ -173,19 +191,45 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
                   {truncateText(post.description, 100)}
                 </p>
                 
-                <div className="flex items-center gap-4 text-xs text-gray-400 mt-2 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <span className="text-gray-400">✍️</span>
-                    by {post.author?.name || 'Anonymous'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span>🙏</span>
-                    {supportCount} {supportCount === 1 ? 'support' : 'supports'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span>🕒</span>
-                    {formatTimeAgo(post.createdAt)}
-                  </span>
+                {/* Author with Avatar */}
+                <div className="flex items-center gap-3 text-xs text-gray-400 mt-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    {avatarUrl ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt={post.author?.name || 'User'} 
+                        className="w-5 h-5 rounded-full object-cover ring-1 ring-gray-200"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const parent = e.target.parentElement;
+                          if (parent) {
+                            const fallback = document.createElement('div');
+                            fallback.className = 'w-5 h-5 rounded-full bg-primary-500 text-white flex items-center justify-center text-[10px] font-bold';
+                            fallback.innerText = authorInitials;
+                            parent.appendChild(fallback);
+                            e.target.remove();
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-primary-500 text-white flex items-center justify-center text-[10px] font-bold">
+                        {authorInitials}
+                      </div>
+                    )}
+                    <span className="text-gray-600 font-medium">
+                      {post.author?.name || 'Anonymous'}
+                    </span>
+                  </div>
+                  <span className="text-gray-300">•</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400">🙏</span>
+                    <span>{supportCount} {supportCount === 1 ? 'support' : 'supports'}</span>
+                  </div>
+                  <span className="text-gray-300">•</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400">🕒</span>
+                    <span>{formatTimeAgo(post.createdAt)}</span>
+                  </div>
                 </div>
               </div>
               
@@ -202,7 +246,7 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
         })}
       </div>
       
-      {/* Footer with view all link (optional) */}
+      {/* Footer with view all link */}
       {posts.length === limit && (
         <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 text-center">
           <button 

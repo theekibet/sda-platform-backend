@@ -18,6 +18,7 @@ model Member {
 
   bio    String?
   age    Int?
+  dateOfBirth DateTime?
   gender String?
 
   locationName        String?
@@ -28,8 +29,9 @@ model Member {
   isActive     Boolean   @default(true)
   lastActiveAt DateTime?
 
-  isAdmin          Boolean   @default(false)
-  isSuperAdmin     Boolean   @default(false)
+  // REMOVED: isAdmin Boolean @default(false)
+  isModerator      Boolean   @default(false)  // ✅ NEW - elevated moderators
+  isSuperAdmin     Boolean   @default(false)  // ✅ You only
   isSuspended      Boolean   @default(false)
   suspendedUntil   DateTime?
   suspensionReason String?

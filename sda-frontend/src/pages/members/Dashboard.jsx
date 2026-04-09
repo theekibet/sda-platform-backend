@@ -7,7 +7,7 @@ import FactOfTheDay from '../../components/common/FactOfTheDay';
 import { communityService } from '../../services/communityService';
 
 /* ══════════════════════════════════════════════════════════
-   Greeting Component (enhanced with weather & events)
+   Greeting Component (enhanced with weather & events, now shows user ID)
 ══════════════════════════════════════════════════════════ */
 const Greeting = () => {
   const { user } = useAuth();
@@ -233,6 +233,12 @@ const Greeting = () => {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
             })}
           </p>
+          {/* ✅ User ID displayed here */}
+          {user?.id && (
+            <p className="text-xs opacity-70 mt-1 font-mono">
+              ID: {user.id}
+            </p>
+          )}
         </div>
       </div>
 

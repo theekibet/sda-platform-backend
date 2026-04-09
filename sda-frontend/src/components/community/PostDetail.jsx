@@ -9,6 +9,22 @@ import PostBookmark from './PostBookmark';
 import DonationProgressUpdater from './DonationProgressUpdater';
 import PostEditModal from './PostEditModal';
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const getImageUrl = (avatarUrl) => {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return `${API_BASE_URL}${avatarUrl}`;
+};
+
+const getInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+};
+
 function PostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -39,7 +55,6 @@ function PostDetail() {
       const response = await communityService.getPost(postId);
       if (response.success) {
         setPost(response.data);
-        // Extract stats from the post
         setSupportCount(response.data.stats?.supportCount || 0);
         setCommentCount(response.data.stats?.commentCount || 0);
         setUserHasSupported(response.data.userHasSupported || false);
@@ -68,7 +83,7 @@ function PostDetail() {
       });
 
       if (response.success) {
-        await fetchPost(); // Refresh the post data
+        await fetchPost();
         setResponseComment('');
         setShowCommentInput(false);
       }
@@ -87,7 +102,7 @@ function PostDetail() {
     try {
       const response = await communityService.removeResponse(postId);
       if (response.success) {
-        await fetchPost(); // Refresh the post data
+        await fetchPost();
       }
     } catch (err) {
       console.error('Error removing support:', err);
@@ -143,13 +158,13 @@ function PostDetail() {
   const handlePostUpdate = (updatedPost) => {
     setPost(updatedPost);
     setShowEditModal(false);
-    fetchPost(); // Refresh to get latest stats
+    fetchPost();
   };
 
   const handleDonationUpdate = (updatedPost) => {
     setPost(updatedPost);
     setShowDonationUpdater(false);
-    fetchPost(); // Refresh to get latest stats
+    fetchPost();
   };
 
   const formatDate = (dateString) => {
@@ -165,14 +180,6 @@ function PostDetail() {
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
   };
-
-  const getResponseIcon = () => {
-    return '🙏';
-  };
-
-  const getResponseLabel = () => {
-    return 'Support';
-    };
 
   if (loading) {
     return (
@@ -211,7 +218,7 @@ function PostDetail() {
         ← Back to Community Board
       </button>
 
-      {/* Post Card */}
+      {/* Post Card - Handles main post author avatar */}
       <PostCard
         post={post}
         currentUser={user}
@@ -300,7 +307,7 @@ function PostDetail() {
         </div>
       )}
 
-      {/* All Support Responses Section */}
+      {/* All Support Responses Section - WITH AVATARS */}
       {post.responses && post.responses.length > 0 && (
         <div className="mt-8">
           <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -308,76 +315,95 @@ function PostDetail() {
             <span>Support &amp; Comments ({post.responses.length})</span>
           </h3>
           <div className="space-y-4">
-            {post.responses.map((response) => (
-              <div key={response.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start gap-3 flex-wrap">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white flex items-center justify-center font-bold text-base">
-                      {response.user?.name?.charAt(0) || '?'}
+            {post.responses.map((response) => {
+              const avatarUrl = getImageUrl(response.user?.avatarUrl);
+              const initials = getInitials(response.user?.name);
+              
+              return (
+                <div key={response.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-start gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar with image support */}
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-white font-bold text-base">
+                        {avatarUrl ? (
+                          <img 
+                            src={avatarUrl} 
+                            alt={response.user?.name || 'User'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.parentElement.innerText = initials;
+                              e.target.parentElement.classList.add('bg-gradient-to-r', 'from-primary-500', 'to-secondary-500');
+                            }}
+                          />
+                        ) : (
+                          initials
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-800">
+                          {response.user?.name || 'Anonymous'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {formatDate(response.createdAt)}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">
-                        {response.user?.name || 'Anonymous'}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {formatDate(response.createdAt)}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded-full flex items-center gap-1">
+                        <span>🙏</span> Support
+                      </span>
+                      {response.userId === user?.id && !editingCommentId && (
+                        <button
+                          onClick={() => handleEditComment(response)}
+                          className="text-gray-400 hover:text-primary-500 transition text-sm"
+                          title="Edit comment"
+                        >
+                          ✏️
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded-full flex items-center gap-1">
-                      <span>🙏</span> Support
-                    </span>
-                    {response.userId === user?.id && !editingCommentId && (
-                      <button
-                        onClick={() => handleEditComment(response)}
-                        className="text-gray-400 hover:text-primary-500 transition text-sm"
-                        title="Edit comment"
-                      >
-                        ✏️
-                      </button>
-                    )}
-                  </div>
+                  
+                  {editingCommentId === response.id ? (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        value={editingCommentText}
+                        onChange={(e) => setEditingCommentText(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        rows="3"
+                        maxLength="500"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleUpdateComment(response.id)}
+                          disabled={submitting}
+                          className="px-4 py-1.5 bg-primary-500 text-white rounded-md text-sm hover:bg-primary-600 transition"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingCommentId(null);
+                            setEditingCommentText('');
+                          }}
+                          className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-md text-sm hover:bg-gray-300 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    response.comment && (
+                      <p className="mt-3 pl-12 text-gray-600 text-sm leading-relaxed">
+                        {response.comment}
+                      </p>
+                    )
+                  )}
                 </div>
-                
-                {editingCommentId === response.id ? (
-                  <div className="mt-3 space-y-2">
-                    <textarea
-                      value={editingCommentText}
-                      onChange={(e) => setEditingCommentText(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      rows="3"
-                      maxLength="500"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleUpdateComment(response.id)}
-                        disabled={submitting}
-                        className="px-4 py-1.5 bg-primary-500 text-white rounded-md text-sm hover:bg-primary-600 transition"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingCommentId(null);
-                          setEditingCommentText('');
-                        }}
-                        className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-md text-sm hover:bg-gray-300 transition"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  response.comment && (
-                    <p className="mt-3 pl-12 text-gray-600 text-sm leading-relaxed">
-                      {response.comment}
-                    </p>
-                  )
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,12 +1,12 @@
 import { Controller, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/admin.guard';
+import { SuperAdminGuard } from '../../common/guards/super-admin.guard'; // ✅ CHANGED from AdminGuard
 import { UpdateSettingDto } from './dto/update-setting.dto';
 import { FeatureFlagDto } from './dto/feature-flag.dto';
 
 @Controller('admin/settings')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, SuperAdminGuard) // ✅ CHANGED: Settings are super admin only
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 

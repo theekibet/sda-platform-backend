@@ -45,7 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           email: true,
           name: true,
           avatarUrl: true,
-          isAdmin: true,
+          isModerator: true,      // ✅ CHANGED from isAdmin
           isSuperAdmin: true,
           isSuspended: true,
           suspendedUntil: true,
@@ -96,7 +96,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
-        isAdmin: user.isAdmin,
+        isModerator: user.isModerator,  // ✅ CHANGED from isAdmin
         isSuperAdmin: user.isSuperAdmin,
         locationName: user.locationName,
       };

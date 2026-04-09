@@ -24,10 +24,6 @@ import { RateLimitDto } from '../security/dto/rate-limit.dto';
 import { BackupDto } from '../maintenance/dto/backup.dto';
 // ============ IMPORT NOTIFICATION SERVICE ============
 import { NotificationService, CreateNotificationDto } from '../notifications/notification.service';
-// ============ IMPORT FOR SESSION TERMINATION ============
-// 🔥 FIX: Remove the import or create the service
-// Option A: Delete this line if you don't have the service
-// import { UserSessionService } from '../auth/user-session.service';
 
 // Define types for better type safety
 interface BulkActionResult {
@@ -46,14 +42,12 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
-    // 🔥 FIX: Remove UserSessionService from constructor
-    // private userSessionService: UserSessionService,
   ) {}
 
   // ============ USER MANAGEMENT ============
 
   async getUsers(query: UserQueryDto) {
-    const { search, isAdmin, isSuspended, page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const { search, isModerator, isSuspended, page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -66,8 +60,8 @@ export class AdminService {
       ];
     }
 
-    if (isAdmin !== undefined) {
-      where.isAdmin = isAdmin;
+    if (isModerator !== undefined) {
+      where.isModerator = isModerator;
     }
 
     if (isSuspended !== undefined) {
@@ -83,7 +77,8 @@ export class AdminService {
           email: true,
           phone: true,
           locationName: true,
-          isAdmin: true,
+          isModerator: true, // ✅ CHANGED from isAdmin
+          isSuperAdmin: true,
           isSuspended: true,
           suspendedUntil: true,
           suspensionReason: true,
@@ -124,7 +119,8 @@ export class AdminService {
         age: true,
         gender: true,
         locationName: true,
-        isAdmin: true,
+        isModerator: true, // ✅ CHANGED from isAdmin
+        isSuperAdmin: true,
         isSuspended: true,
         suspendedUntil: true,
         suspensionReason: true,
@@ -213,8 +209,9 @@ export class AdminService {
     };
   }
 
-  // ============ TOGGLE ADMIN WITH NOTIFICATION ============
-  async toggleAdmin(adminId: string, userId: string) {
+  // ============ TOGGLE MODERATOR WITH NOTIFICATION ============
+  // ✅ RENAMED from toggleAdmin to toggleModerator
+  async toggleModerator(adminId: string, userId: string) {
     const user = await this.prisma.member.findUnique({
       where: { id: userId },
     });
@@ -223,9 +220,9 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    // Don't allow removing your own admin privileges
+    // Don't allow removing your own moderator privileges
     if (userId === adminId) {
-      throw new BadRequestException('You cannot change your own admin status');
+      throw new BadRequestException('You cannot change your own moderator status');
     }
 
     // ✅ CRITICAL: Super admin status can NEVER be changed via API
@@ -236,27 +233,27 @@ export class AdminService {
     const updated = await this.prisma.member.update({
       where: { id: userId },
       data: {
-        isAdmin: !user.isAdmin,
+        isModerator: !user.isModerator, // ✅ CHANGED from isAdmin
         adminNotes: user.adminNotes 
-          ? `${user.adminNotes}\n\n[${new Date().toISOString()}] Admin ${adminId} ${user.isAdmin ? 'removed' : 'granted'} admin privileges.`
-          : `[${new Date().toISOString()}] Admin ${adminId} granted admin privileges.`,
+          ? `${user.adminNotes}\n\n[${new Date().toISOString()}] Admin ${adminId} ${user.isModerator ? 'removed' : 'granted'} moderator privileges.` // ✅ CHANGED
+          : `[${new Date().toISOString()}] Admin ${adminId} granted moderator privileges.`, // ✅ CHANGED
       },
       select: {
         id: true,
         name: true,
-        isAdmin: true,
+        isModerator: true, // ✅ CHANGED from isAdmin
       },
     });
 
     // Send notification to user
     await this.notificationService.create({
-      type: 'admin_status_change',
-      title: updated.isAdmin ? 'Admin Privileges Granted' : 'Admin Privileges Removed',
-      message: updated.isAdmin 
-        ? 'You have been granted admin privileges'
-        : 'Your admin privileges have been removed',
+      type: 'moderator_status_change', // ✅ CHANGED from admin_status_change
+      title: updated.isModerator ? 'Moderator Privileges Granted' : 'Moderator Privileges Removed', // ✅ CHANGED
+      message: updated.isModerator 
+        ? 'You have been granted moderator privileges' // ✅ CHANGED
+        : 'Your moderator privileges have been removed', // ✅ CHANGED
       data: {
-        isAdmin: updated.isAdmin,
+        isModerator: updated.isModerator, // ✅ CHANGED from isAdmin
         updatedBy: adminId,
       },
       userId: userId,
@@ -264,7 +261,7 @@ export class AdminService {
 
     return {
       success: true,
-      message: `Admin privileges ${updated.isAdmin ? 'granted to' : 'removed from'} ${updated.name}`,
+      message: `Moderator privileges ${updated.isModerator ? 'granted to' : 'removed from'} ${updated.name}`, // ✅ CHANGED
       user: updated,
     };
   }
@@ -301,7 +298,7 @@ export class AdminService {
       },
     });
 
-    // 🔥 FIX: Terminate all active sessions after password change (direct Prisma call)
+    // Terminate all active sessions after password change
     await this.prisma.userSession.updateMany({
       where: { userId, isRevoked: false },
       data: { isRevoked: true },
@@ -319,8 +316,6 @@ export class AdminService {
       },
       userId: userId,
     });
-
-    // TODO: Send email notification if sendEmail is true
 
     return {
       success: true,
@@ -384,17 +379,17 @@ export class AdminService {
       where: { id: userId }
     });
 
-    // Notify other admins about the deletion
-    const admins = await this.prisma.member.findMany({
+    // Notify other moderators about the deletion
+    const moderators = await this.prisma.member.findMany({
       where: { 
-        isAdmin: true, 
+        isModerator: true, // ✅ CHANGED from isAdmin
         id: { not: adminId } 
       },
       select: { id: true }
     });
 
-    // Create notifications for each admin
-    for (const admin of admins) {
+    // Create notifications for each moderator
+    for (const moderator of moderators) {
       await this.notificationService.create({
         type: 'user_deleted',
         title: 'User Account Deleted',
@@ -405,7 +400,7 @@ export class AdminService {
           deletedByEmail: userEmail,
           adminId,
         },
-        userId: admin.id,
+        userId: moderator.id,
       });
     }
     
@@ -503,43 +498,43 @@ export class AdminService {
               break;
             }
 
-            case 'makeAdmin': {
+            case 'makeModerator': { // ✅ CHANGED from makeAdmin
               const user = await tx.member.findUnique({
                 where: { id: userId }
               });
               
-              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} granted admin privileges (bulk).`;
+              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} granted moderator privileges (bulk).`; // ✅ CHANGED
               
               await tx.member.update({
                 where: { id: userId },
                 data: {
-                  isAdmin: true,
+                  isModerator: true, // ✅ CHANGED from isAdmin
                   adminNotes: user?.adminNotes 
                     ? `${user.adminNotes}\n\n${adminNote}`
                     : adminNote,
                 }
               });
-              results.success.push({ userId, action: 'made admin' });
+              results.success.push({ userId, action: 'made moderator' }); // ✅ CHANGED
               break;
             }
 
-            case 'removeAdmin': {
+            case 'removeModerator': { // ✅ CHANGED from removeAdmin
               const user = await tx.member.findUnique({
                 where: { id: userId }
               });
               
-              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} removed admin privileges (bulk).`;
+              const adminNote = `[${new Date().toISOString()}] Admin ${adminId} removed moderator privileges (bulk).`; // ✅ CHANGED
               
               await tx.member.update({
                 where: { id: userId },
                 data: {
-                  isAdmin: false,
+                  isModerator: false, // ✅ CHANGED from isAdmin
                   adminNotes: user?.adminNotes 
                     ? `${user.adminNotes}\n\n${adminNote}`
                     : adminNote,
                 }
               });
-              results.success.push({ userId, action: 'removed admin' });
+              results.success.push({ userId, action: 'removed moderator' }); // ✅ CHANGED
               break;
             }
           }
@@ -558,18 +553,18 @@ export class AdminService {
       try {
         switch (action) {
           case 'delete':
-            // Notify admins about deletion
-            const admins = await this.prisma.member.findMany({
-              where: { isAdmin: true, id: { not: adminId } },
+            // Notify moderators about deletion
+            const moderators = await this.prisma.member.findMany({
+              where: { isModerator: true, id: { not: adminId } }, // ✅ CHANGED from isAdmin
               select: { id: true }
             });
-            for (const admin of admins) {
+            for (const moderator of moderators) {
               await this.notificationService.create({
                 type: 'user_deleted',
                 title: 'User Account Deleted',
                 message: `A user has been deleted via bulk action`,
                 data: { userId: result.userId, adminId, action: 'bulk_delete' },
-                userId: admin.id,
+                userId: moderator.id,
               });
             }
             break;
@@ -594,22 +589,22 @@ export class AdminService {
             });
             break;
 
-          case 'makeAdmin':
+          case 'makeModerator': // ✅ CHANGED from makeAdmin
             await this.notificationService.create({
-              type: 'admin_status_change',
-              title: 'Admin Privileges Granted',
-              message: 'You have been granted admin privileges',
-              data: { isAdmin: true, updatedBy: adminId, bulk: true },
+              type: 'moderator_status_change', // ✅ CHANGED from admin_status_change
+              title: 'Moderator Privileges Granted', // ✅ CHANGED
+              message: 'You have been granted moderator privileges', // ✅ CHANGED
+              data: { isModerator: true, updatedBy: adminId, bulk: true }, // ✅ CHANGED from isAdmin
               userId: result.userId,
             });
             break;
 
-          case 'removeAdmin':
+          case 'removeModerator': // ✅ CHANGED from removeAdmin
             await this.notificationService.create({
-              type: 'admin_status_change',
-              title: 'Admin Privileges Removed',
-              message: 'Your admin privileges have been removed',
-              data: { isAdmin: false, updatedBy: adminId, bulk: true },
+              type: 'moderator_status_change', // ✅ CHANGED from admin_status_change
+              title: 'Moderator Privileges Removed', // ✅ CHANGED
+              message: 'Your moderator privileges have been removed', // ✅ CHANGED
+              data: { isModerator: false, updatedBy: adminId, bulk: true }, // ✅ CHANGED from isAdmin
               userId: result.userId,
             });
             break;
@@ -628,7 +623,7 @@ export class AdminService {
   }
 
   async exportUsers(query: UserQueryDto) {
-    const { search, isAdmin, isSuspended } = query;
+    const { search, isModerator, isSuspended } = query; // ✅ CHANGED from isAdmin
 
     const where: any = {};
 
@@ -640,8 +635,8 @@ export class AdminService {
       ];
     }
 
-    if (isAdmin !== undefined) {
-      where.isAdmin = isAdmin;
+    if (isModerator !== undefined) { // ✅ CHANGED from isAdmin
+      where.isModerator = isModerator; // ✅ CHANGED from isAdmin
     }
 
     if (isSuspended !== undefined) {
@@ -658,7 +653,8 @@ export class AdminService {
         locationName: true,
         age: true,
         gender: true,
-        isAdmin: true,
+        isModerator: true, // ✅ CHANGED from isAdmin
+        isSuperAdmin: true,
         isSuspended: true,
         suspensionReason: true,
         createdAt: true,
@@ -721,6 +717,7 @@ export class AdminService {
       newUsersThisMonth,
       activeToday,
       activeThisWeek,
+      totalModerators, // ✅ CHANGED from totalAdmins
       
       totalPrayers,
       totalTestimonies,
@@ -732,6 +729,7 @@ export class AdminService {
       this.prisma.member.count({ where: { createdAt: { gte: thisMonth } } }),
       this.prisma.member.count({ where: { lastActiveAt: { gte: today } } }),
       this.prisma.member.count({ where: { lastActiveAt: { gte: thisWeek } } }),
+      this.prisma.member.count({ where: { isModerator: true } }), // ✅ CHANGED from isAdmin
       
       this.prisma.prayerRequest.count(),
       this.prisma.testimony.count(),
@@ -747,6 +745,7 @@ export class AdminService {
         activeToday,
         activeThisWeek,
       },
+      moderators: totalModerators, // ✅ CHANGED from admins
       content: {
         prayerRequests: totalPrayers,
         testimonies: totalTestimonies,
@@ -991,18 +990,18 @@ export class AdminService {
         if (report.reportedUserId) {
           await this.deleteUser(adminId, report.reportedUserId);
           actionTaken = 'User banned';
-          // Note: deleteUser sends notification to admins
+          // Note: deleteUser sends notification to moderators
         }
         break;
     }
 
-    // 🔥 FIX: Always set resolvedById (removed invalid 'assign' check)
+    // Always set resolvedById
     const updateData: any = {
       status: action === 'dismiss' ? 'dismissed' : 'resolved',
       resolvedAt: new Date(),
       resolution: action,
       adminNotes: notes,
-      resolvedById: adminId,  // Always set for resolution actions
+      resolvedById: adminId,
     };
 
     // Update the report
@@ -1046,7 +1045,7 @@ export class AdminService {
     };
   }
 
-  // 🔥 FIX: Assign report without setting resolvedById
+  // Assign report without setting resolvedById
   async assignReport(adminId: string, reportId: string, assigneeId: string) {
     const report = await this.prisma.report.findUnique({
       where: { id: reportId },
@@ -1061,7 +1060,6 @@ export class AdminService {
     const updatedReport = await this.prisma.report.update({
       where: { id: reportId },
       data: {
-        // Don't set resolvedById here - use adminNotes only for assignment
         status: 'investigating',
         adminNotes: report.adminNotes 
           ? `${report.adminNotes}\n\n${adminNote}`
@@ -1504,7 +1502,7 @@ export class AdminService {
 
     return {
       ...setting,
-      value: this.parseValue(setting.value, setting.type),
+      value: this.parseValue(setting.value, setting.type), 
     };
   }
 
@@ -2216,13 +2214,13 @@ export class AdminService {
       },
     });
 
-    // Notify admins about backup completion
-    const admins = await this.prisma.member.findMany({
-      where: { isAdmin: true },
+    // Notify super admins about backup completion
+    const superAdmins = await this.prisma.member.findMany({
+      where: { isSuperAdmin: true }, // ✅ CHANGED from isAdmin
       select: { id: true },
     });
 
-    for (const admin of admins) {
+    for (const superAdmin of superAdmins) {
       await this.notificationService.create({
         type: 'system_backup',
         title: 'Database Backup Created',
@@ -2233,7 +2231,7 @@ export class AdminService {
           size: this.formatBytes(backup.size),
           type,
         },
-        userId: admin.id,
+        userId: superAdmin.id,
       });
     }
 
@@ -2290,13 +2288,13 @@ export class AdminService {
       throw new NotFoundException('Backup not found');
     }
 
-    // Notify admins about restore
-    const admins = await this.prisma.member.findMany({
-      where: { isAdmin: true },
+    // Notify super admins about restore
+    const superAdmins = await this.prisma.member.findMany({
+      where: { isSuperAdmin: true }, // ✅ CHANGED from isAdmin
       select: { id: true },
     });
 
-    for (const admin of admins) {
+    for (const superAdmin of superAdmins) {
       await this.notificationService.create({
         type: 'system_restore',
         title: 'Database Restore Initiated',
@@ -2305,7 +2303,7 @@ export class AdminService {
           backupId: id,
           filename: backup.filename,
         },
-        userId: admin.id,
+        userId: superAdmin.id,
       });
     }
 

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, IsInt, IsUrl, MinLength, MaxLength, Min, Max, IsIn, IsPhoneNumber } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsInt, IsUrl, MinLength, MaxLength, Min, Max, IsIn, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateProfileDto {
@@ -24,7 +24,7 @@ export class UpdateProfileDto {
   bio?: string;
 
   @IsOptional()
-  @Type(() => Number)          // ← explicit transform, handles empty string too
+  @Type(() => Number)
   @IsInt()
   @Min(13)
   @Max(120)
@@ -54,4 +54,9 @@ export class UpdateProfileDto {
   @IsString()
   @MinLength(8)
   newPassword?: string;
+
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Date of birth must be a valid date (YYYY-MM-DD)' })
+  dateOfBirth?: string;
 }

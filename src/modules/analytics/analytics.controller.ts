@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/admin.guard';
+import { ModeratorGuard } from '../../common/guards/moderator.guard'; // ✅ CHANGED from AdminGuard
 import { DateRangeDto } from './dto/date-range.dto';
 
 // Define return types
@@ -34,7 +34,7 @@ interface EngagementMetricsResponse {
 }
 
 @Controller('admin/analytics')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, ModeratorGuard) // ✅ CHANGED: Analytics for moderators + super admin
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

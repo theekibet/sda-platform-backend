@@ -5,14 +5,22 @@ import {
   getDashboardStats, 
   getUsers, 
   suspendUser,
-  toggleAdmin,
+  toggleModerator,
   adminResetPassword,
   deleteUser,
 } from '../../services/api';
 import Avatar from '../../components/common/Avatar';
+import ModeratorDashboard from './ModeratorDashboard'; // ✅ import moderator dashboard
 
 function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
+
+  // ✅ If not super admin, show moderator dashboard
+  if (!isSuperAdmin) {
+    return <ModeratorDashboard />;
+  }
+
+  // === Everything below is only for super admin ===
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +33,8 @@ function AdminDashboard() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendDuration, setSuspendDuration] = useState('7');
 
   useEffect(() => {
     fetchDashboardData();
@@ -42,6 +52,7 @@ function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const response = await getUsers();
       setUsers(response.data.users || []);
     } catch (error) {
@@ -53,12 +64,27 @@ function AdminDashboard() {
 
   const handleSuspendUser = async (userId, reason, duration) => {
     try {
-      await suspendUser(userId, { reason, duration });
+      const until = duration !== 'permanent' 
+        ? new Date(Date.now() + parseInt(duration) * 86400000).toISOString()
+        : undefined;
+      await suspendUser(userId, { suspend: true, reason, until });
       fetchUsers();
       setShowConfirmDialog(false);
+      setSuspendReason('');
+      setSuspendDuration('7');
       alert('User suspended successfully');
     } catch (error) {
       alert('Error suspending user: ' + error.message);
+    }
+  };
+
+  const handleUnsuspendUser = async (userId) => {
+    try {
+      await suspendUser(userId, { suspend: false });
+      fetchUsers();
+      alert('User unsuspended successfully');
+    } catch (error) {
+      alert('Error unsuspending user: ' + error.message);
     }
   };
 
@@ -74,13 +100,13 @@ function AdminDashboard() {
     }
   };
 
-  const handleToggleAdmin = async (userId) => {
+  const handleToggleModerator = async (userId) => {
     try {
-      await toggleAdmin(userId);
+      await toggleModerator(userId);
       fetchUsers();
-      alert('Admin status updated');
+      alert('Moderator status updated');
     } catch (error) {
-      alert('Error updating admin status: ' + error.message);
+      alert('Error updating moderator status: ' + error.message);
     }
   };
 
@@ -96,275 +122,372 @@ function AdminDashboard() {
     }
   };
 
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = users.filter(userItem => {
     const matchesSearch = 
-      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone?.includes(searchTerm);
+      userItem.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userItem.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userItem.phone?.includes(searchTerm);
     
-    const matchesRole = !filters.role || user.role === filters.role;
-    const matchesStatus = !filters.status || user.status === filters.status;
+    let matchesRole = true;
+    if (filters.role === 'superadmin') {
+      matchesRole = userItem.isSuperAdmin === true;
+    } else if (filters.role === 'moderator') {
+      matchesRole = userItem.isModerator === true && !userItem.isSuperAdmin;
+    } else if (filters.role === 'member') {
+      matchesRole = !userItem.isSuperAdmin && !userItem.isModerator;
+    }
+    
+    let matchesStatus = true;
+    if (filters.status === 'active') {
+      matchesStatus = userItem.isSuspended === false;
+    } else if (filters.status === 'suspended') {
+      matchesStatus = userItem.isSuspended === true;
+    }
     
     return matchesSearch && matchesRole && matchesStatus;
   });
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="w-12 h-12 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <div className="text-gray-500">Loading dashboard...</div>
+      </div>
+    );
+  }
+
   return (
-    <div style={styles.container}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Welcome Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>👑 Admin Dashboard</h1>
-          <p style={styles.subtitle}>Welcome back, {user?.name}</p>
-        </div>
+      <div className="mb-8 bg-white rounded-xl shadow-sm p-6">
+        <h1 className="text-3xl font-bold text-purple-600 mb-1">👑 Admin Dashboard</h1>
+        <p className="text-gray-500">Welcome back, {user?.name}</p>
       </div>
 
       {/* Quick Stats Cards */}
       {stats && (
-        <div style={styles.statsGrid}>
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>👥</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
+            <span className="text-4xl">👥</span>
             <div>
-              <h3 style={styles.statTitle}>Total Users</h3>
-              <p style={styles.statNumber}>{stats.users.total}</p>
+              <h3 className="text-sm text-gray-500 mb-1">Total Users</h3>
+              <p className="text-2xl font-bold text-gray-800">{stats.users?.total || 0}</p>
             </div>
           </div>
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>📝</div>
+          <div className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
+            <span className="text-4xl">📝</span>
             <div>
-              <h3 style={styles.statTitle}>Forum Posts</h3>
+              <h3 className="text-sm text-gray-500 mb-1">Forum Posts</h3>
+              <p className="text-2xl font-bold text-gray-800">—</p>
             </div>
           </div>
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>🙏</div>
+          <div className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
+            <span className="text-4xl">🙏</span>
             <div>
-              <h3 style={styles.statTitle}>Prayer Requests</h3>
-              <p style={styles.statNumber}>{stats.content.prayerRequests}</p>
+              <h3 className="text-sm text-gray-500 mb-1">Prayer Requests</h3>
+              <p className="text-2xl font-bold text-gray-800">{stats.content?.prayerRequests || 0}</p>
             </div>
           </div>
-          <div style={styles.statCard}>
-            <div style={styles.statIcon}>🤝</div>
+          <div className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
+            <span className="text-4xl">🤝</span>
             <div>
-              <h3 style={styles.statTitle}>Groups</h3>
-              <p style={styles.statNumber}>{stats.content.groups}</p>
+              <h3 className="text-sm text-gray-500 mb-1">Groups</h3>
+              <p className="text-2xl font-bold text-gray-800">{stats.content?.groups || 0}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* User Management Section */}
-      <div style={styles.section}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>User Management</h2>
-          <div style={styles.userFilters}>
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInput}
-            />
-            <select
-              value={filters.role}
-              onChange={(e) => setFilters({...filters, role: e.target.value})}
-              style={styles.filterSelect}
-            >
-              <option value="">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="moderator">Moderator</option>
-              <option value="user">User</option>
-            </select>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
-              style={styles.filterSelect}
-            >
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-            </select>
+      {/* User Management Section (only for super admin) */}
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h2 className="text-xl font-bold text-gray-800">User Management</h2>
+            <div className="flex flex-wrap gap-3">
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg w-64 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <select
+                value={filters.role}
+                onChange={(e) => setFilters({...filters, role: e.target.value})}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">All Roles</option>
+                <option value="superadmin">Super Admin</option>
+                <option value="moderator">Moderator</option>
+                <option value="member">Member</option>
+              </select>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div style={styles.userTable}>
-          <table style={styles.table}>
-            <thead>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th>User</th>
-                <th>Contact</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Joined</th>
-                <th>Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {filteredUsers.map(user => (
-                <tr key={user.id}>
-                  <td>
-                    <div style={styles.userCell}>
-                      <Avatar user={user} size="small" />
-                      <div>
-                        <div style={styles.userName}>{user.name}</div>
-                        <div style={styles.userEmail}>{user.email}</div>
+            <tbody className="divide-y divide-gray-200">
+              {filteredUsers.map(userItem => {
+                const isSuperAdmin = userItem.isSuperAdmin === true;
+                const isModerator = userItem.isModerator === true && !isSuperAdmin;
+                
+                return (
+                  <tr key={userItem.id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar user={userItem} size="medium" />
+                        <div>
+                          <div className="font-medium text-gray-800">{userItem.name}</div>
+                          <div className="text-xs text-gray-400">{userItem.email}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>{user.phone || '—'}</td>
-                  <td>
-                    <span style={{
-                      ...styles.roleBadge,
-                      ...(user.isAdmin ? styles.adminRole : {}),
-                      ...(user.isModerator ? styles.moderatorRole : {})
-                    }}>
-                      {user.isAdmin ? 'Admin' : user.isModerator ? 'Moderator' : 'User'}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{
-                      ...styles.statusBadge,
-                      ...(user.isSuspended ? styles.suspendedStatus : styles.activeStatus)
-                    }}>
-                      {user.isSuspended ? 'Suspended' : 'Active'}
-                    </span>
-                  </td>
-                  <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                  <td>
-                    <div style={styles.actionButtons}>
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowUserModal(true);
-                        }}
-                        style={styles.viewButton}
-                        title="View Details"
-                      >
-                        👁️
-                      </button>
-                      <button
-                        onClick={() => handleToggleAdmin(user.id)}
-                        style={styles.adminButton}
-                        title={user.isAdmin ? 'Remove Admin' : 'Make Admin'}
-                      >
-                        {user.isAdmin ? '👑' : '⭐'}
-                      </button>
-                      <button
-                        onClick={() => handleResetPassword(user.id)}
-                        style={styles.resetButton}
-                        title="Reset Password"
-                      >
-                        🔑
-                      </button>
-                      <button
-                        onClick={() => {
-                          setConfirmAction({
-                            type: 'suspend',
-                            user: user,
-                            onConfirm: (reason, duration) => handleSuspendUser(user.id, reason, duration)
-                          });
-                          setShowConfirmDialog(true);
-                        }}
-                        style={user.isSuspended ? styles.unsuspendButton : styles.suspendButton}
-                        title={user.isSuspended ? 'Unsuspend' : 'Suspend'}
-                      >
-                        {user.isSuspended ? '✅' : '⛔'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        style={styles.deleteButton}
-                        title="Delete User"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{userItem.phone || '—'}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        isSuperAdmin ? 'bg-purple-100 text-purple-700' :
+                        isModerator ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {isSuperAdmin ? '👑 Super Admin' : isModerator ? '🛡️ Moderator' : '👤 Member'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        userItem.isSuspended ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      }`}>
+                        {userItem.isSuspended ? '⛔ Suspended' : '✅ Active'}
+                      </span>
+                      {userItem.suspendedUntil && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          until {new Date(userItem.suspendedUntil).toLocaleDateString()}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {new Date(userItem.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedUser(userItem);
+                            setShowUserModal(true);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+                          title="View Details"
+                        >
+                          👁️
+                        </button>
+                        {!isSuperAdmin && (
+                          <button
+                            onClick={() => handleToggleModerator(userItem.id)}
+                            className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+                            title={isModerator ? 'Remove Moderator' : 'Make Moderator'}
+                          >
+                            {isModerator ? '🔽' : '🛡️'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleResetPassword(userItem.id)}
+                          className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+                          title="Reset Password"
+                        >
+                          🔑
+                        </button>
+                        {!userItem.isSuspended ? (
+                          <button
+                            onClick={() => {
+                              setConfirmAction({
+                                type: 'suspend',
+                                user: userItem,
+                                onConfirm: (reason, duration) => handleSuspendUser(userItem.id, reason, duration)
+                              });
+                              setShowConfirmDialog(true);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-yellow-500 rounded-md transition"
+                            title="Suspend"
+                          >
+                            ⛔
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUnsuspendUser(userItem.id)}
+                            className="p-1.5 text-gray-400 hover:text-green-500 rounded-md transition"
+                            title="Unsuspend"
+                          >
+                            ✅
+                          </button>
+                        )}
+                        {!isSuperAdmin && (
+                          <button
+                            onClick={() => handleDeleteUser(userItem.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-md transition"
+                            title="Delete User"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {filteredUsers.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-5xl mb-3">🔍</div>
+            <div className="text-gray-500 font-medium">No users found</div>
+            <div className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</div>
+          </div>
+        )}
       </div>
 
-      {/* User Details Modal */}
+      {/* User Details Modal (same as before) */}
       {showUserModal && selectedUser && (
-        <div style={styles.modalOverlay} onClick={() => setShowUserModal(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2>User Details</h2>
-              <button onClick={() => setShowUserModal(false)} style={styles.closeButton}>✕</button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowUserModal(false)}>
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">User Details</h2>
+              <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
-            <div style={styles.modalBody}>
-              <div style={styles.userProfileHeader}>
-                <Avatar user={selectedUser} size="large" />
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <Avatar user={selectedUser} size="xlarge" />
                 <div>
-                  <h3>{selectedUser.name}</h3>
-                  <p>{selectedUser.email}</p>
+                  <h3 className="text-xl font-bold text-gray-800">{selectedUser.name}</h3>
+                  <p className="text-gray-500">{selectedUser.email}</p>
+                  <div className="flex gap-2 mt-2">
+                    {selectedUser.isSuperAdmin && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Super Admin</span>
+                    )}
+                    {selectedUser.isModerator && !selectedUser.isSuperAdmin && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Moderator</span>
+                    )}
+                    {selectedUser.isSuspended && (
+                      <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Suspended</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div style={styles.userInfoGrid}>
-                <div style={styles.infoItem}>
-                  <label>Phone</label>
-                  <p>{selectedUser.phone || 'Not provided'}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">📞 Phone</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.phone || 'Not provided'}</div>
                 </div>
-                <div style={styles.infoItem}>
-                  <label>Location</label>
-                  <p>{selectedUser.city || 'Not set'}</p>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">📍 Location</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.locationName || 'Not set'}</div>
                 </div>
-                <div style={styles.infoItem}>
-                  <label>Age</label>
-                  <p>{selectedUser.age || 'Not provided'}</p>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">🎂 Age</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.age || 'Not provided'}</div>
                 </div>
-                <div style={styles.infoItem}>
-                  <label>Gender</label>
-                  <p>{selectedUser.gender || 'Not specified'}</p>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">⚥ Gender</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.gender || 'Not specified'}</div>
                 </div>
-                <div style={styles.infoItem}>
-                  <label>Member Since</label>
-                  <p>{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">📅 Member Since</div>
+                  <div className="text-sm font-medium text-gray-700">{new Date(selectedUser.createdAt).toLocaleDateString()}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">⏱️ Last Active</div>
+                  <div className="text-sm font-medium text-gray-700">
+                    {selectedUser.lastActiveAt ? new Date(selectedUser.lastActiveAt).toLocaleDateString() : 'Never'}
+                  </div>
                 </div>
               </div>
 
               {selectedUser.isSuspended && (
-                <div style={styles.suspensionInfo}>
-                  <h4>Suspension Details</h4>
-                  <p><strong>Reason:</strong> {selectedUser.suspensionReason}</p>
-                  <p><strong>Until:</strong> {selectedUser.suspendedUntil ? new Date(selectedUser.suspendedUntil).toLocaleDateString() : 'Permanent'}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-red-800 mb-2">⛔ Suspension Details</h4>
+                  <p className="text-sm text-red-700"><strong>Reason:</strong> {selectedUser.suspensionReason || 'No reason provided'}</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    <strong>Until:</strong> {selectedUser.suspendedUntil 
+                      ? new Date(selectedUser.suspendedUntil).toLocaleDateString()
+                      : 'Permanent'}
+                  </p>
                 </div>
               )}
 
-              <div style={styles.modalActions}>
-                <button
-                  onClick={() => handleToggleAdmin(selectedUser.id)}
-                  style={styles.modalAdminButton}
-                >
-                  {selectedUser.isAdmin ? 'Remove Admin' : 'Make Admin'}
-                </button>
+              {selectedUser.adminNotes && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-gray-700 mb-2">📝 Admin Notes</h4>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedUser.adminNotes}</p>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+                {!selectedUser.isSuperAdmin && (
+                  <button
+                    onClick={() => handleToggleModerator(selectedUser.id)}
+                    className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition text-sm"
+                  >
+                    {selectedUser.isModerator ? '🔽 Remove Moderator' : '🛡️ Make Moderator'}
+                  </button>
+                )}
                 <button
                   onClick={() => handleResetPassword(selectedUser.id)}
-                  style={styles.modalResetButton}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition text-sm"
                 >
-                  Reset Password
+                  🔑 Reset Password
                 </button>
-                <button
-                  onClick={() => {
-                    setShowUserModal(false);
-                    setConfirmAction({
-                      type: 'suspend',
-                      user: selectedUser,
-                      onConfirm: (reason, duration) => handleSuspendUser(selectedUser.id, reason, duration)
-                    });
-                    setShowConfirmDialog(true);
-                  }}
-                  style={selectedUser.isSuspended ? styles.modalUnsuspendButton : styles.modalSuspendButton}
-                >
-                  {selectedUser.isSuspended ? 'Unsuspend' : 'Suspend'}
-                </button>
-                <button
-                  onClick={() => handleDeleteUser(selectedUser.id)}
-                  style={styles.modalDeleteButton}
-                >
-                  Delete User
-                </button>
+                {!selectedUser.isSuspended ? (
+                  <button
+                    onClick={() => {
+                      setShowUserModal(false);
+                      setConfirmAction({
+                        type: 'suspend',
+                        user: selectedUser,
+                        onConfirm: (reason, duration) => handleSuspendUser(selectedUser.id, reason, duration)
+                      });
+                      setShowConfirmDialog(true);
+                    }}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm"
+                  >
+                    ⛔ Suspend
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleUnsuspendUser(selectedUser.id)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
+                  >
+                    ✅ Unsuspend
+                  </button>
+                )}
+                {!selectedUser.isSuperAdmin && (
+                  <button
+                    onClick={() => handleDeleteUser(selectedUser.id)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
+                  >
+                    🗑️ Delete User
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -373,406 +496,81 @@ function AdminDashboard() {
 
       {/* Confirmation Dialog */}
       {showConfirmDialog && confirmAction && (
-        <div style={styles.modalOverlay} onClick={() => setShowConfirmDialog(false)}>
-          <div style={styles.confirmDialog} onClick={e => e.stopPropagation()}>
-            <h3>Confirm Action</h3>
-            {confirmAction.type === 'suspend' && (
-              <div>
-                <p>Suspend {confirmAction.user.name}?</p>
-                <div style={styles.formGroup}>
-                  <label>Reason:</label>
-                  <textarea
-                    placeholder="Enter reason..."
-                    style={styles.textarea}
-                    rows="3"
-                    id="suspendReason"
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label>Duration:</label>
-                  <select style={styles.select} id="suspendDuration">
-                    <option value="1">1 day</option>
-                    <option value="7">7 days</option>
-                    <option value="30">30 days</option>
-                    <option value="permanent">Permanent</option>
-                  </select>
-                </div>
-                <div style={styles.confirmActions}>
-                  <button
-                    onClick={() => {
-                      const reason = document.getElementById('suspendReason').value;
-                      const duration = document.getElementById('suspendDuration').value;
-                      if (reason) {
-                        confirmAction.onConfirm(reason, duration);
-                        setShowConfirmDialog(false);
-                      }
-                    }}
-                    style={styles.confirmButton}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    onClick={() => setShowConfirmDialog(false)}
-                    style={styles.cancelButton}
-                  >
-                    Cancel
-                  </button>
-                </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirmDialog(false)}>
+          <div className="bg-white rounded-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">⚠️</span>
+                <h3 className="text-xl font-bold text-gray-800">
+                  {confirmAction.type === 'suspend' ? 'Suspend User' : 'Confirm Action'}
+                </h3>
               </div>
-            )}
+              
+              {confirmAction.type === 'suspend' && (
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Suspend <strong>{confirmAction.user?.name}</strong>?
+                  </p>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason for suspension:</label>
+                    <textarea
+                      value={suspendReason}
+                      onChange={(e) => setSuspendReason(e.target.value)}
+                      placeholder="Enter reason..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration:</label>
+                    <select
+                      value={suspendDuration}
+                      onChange={(e) => setSuspendDuration(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="1">1 day</option>
+                      <option value="7">7 days</option>
+                      <option value="30">30 days</option>
+                      <option value="permanent">Permanent</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        if (suspendReason.trim()) {
+                          confirmAction.onConfirm(suspendReason, suspendDuration);
+                          setSuspendReason('');
+                          setSuspendDuration('7');
+                        } else {
+                          alert('Please provide a reason');
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
+                    >
+                      Confirm Suspension
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowConfirmDialog(false);
+                        setSuspendReason('');
+                        setSuspendDuration('7');
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: '1400px',
-    margin: '0 auto',
-    padding: '20px',
-  },
-  header: {
-    marginBottom: '30px',
-    padding: '20px',
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  title: {
-    margin: '0 0 5px 0',
-    color: '#9b59b6',
-    fontSize: '28px',
-  },
-  subtitle: {
-    margin: 0,
-    color: '#666',
-    fontSize: '14px',
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '30px',
-  },
-  statCard: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '15px',
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '10px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  statIcon: {
-    fontSize: '32px',
-  },
-  statTitle: {
-    margin: '0 0 5px 0',
-    color: '#666',
-    fontSize: '14px',
-  },
-  statNumber: {
-    margin: 0,
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  section: {
-    backgroundColor: 'white',
-    borderRadius: '10px',
-    padding: '20px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  sectionTitle: {
-    margin: 0,
-    color: '#333',
-    fontSize: '20px',
-  },
-  userFilters: {
-    display: 'flex',
-    gap: '10px',
-  },
-  searchInput: {
-    padding: '8px 12px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    width: '250px',
-  },
-  filterSelect: {
-    padding: '8px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-  },
-  userTable: {
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '14px',
-  },
-  userCell: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  userName: {
-    fontWeight: '500',
-    color: '#333',
-  },
-  userEmail: {
-    fontSize: '12px',
-    color: '#999',
-  },
-  roleBadge: {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-  },
-  adminRole: {
-    backgroundColor: '#9b59b6',
-    color: 'white',
-  },
-  moderatorRole: {
-    backgroundColor: '#3498db',
-    color: 'white',
-  },
-  statusBadge: {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    fontSize: '12px',
-  },
-  activeStatus: {
-    backgroundColor: '#27ae60',
-    color: 'white',
-  },
-  suspendedStatus: {
-    backgroundColor: '#e74c3c',
-    color: 'white',
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: '5px',
-  },
-  viewButton: {
-    padding: '5px',
-    border: 'none',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    backgroundColor: '#3498db',
-    color: 'white',
-  },
-  adminButton: {
-    padding: '5px',
-    border: 'none',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    backgroundColor: '#9b59b6',
-    color: 'white',
-  },
-  resetButton: {
-    padding: '5px',
-    border: 'none',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    backgroundColor: '#f39c12',
-    color: 'white',
-  },
-  suspendButton: {
-    padding: '5px',
-    border: 'none',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-  },
-  unsuspendButton: {
-    padding: '5px',
-    border: 'none',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    backgroundColor: '#27ae60',
-    color: 'white',
-  },
-  deleteButton: {
-    padding: '5px',
-    border: 'none',
-    borderRadius: '3px',
-    cursor: 'pointer',
-    backgroundColor: '#c0392b',
-    color: 'white',
-  },
-  // Modal Styles
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: 'white',
-    borderRadius: '10px',
-    maxWidth: '500px',
-    width: '90%',
-    maxHeight: '90vh',
-    overflow: 'auto',
-  },
-  modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px',
-    borderBottom: '1px solid #eee',
-  },
-  closeButton: {
-    background: 'none',
-    border: 'none',
-    fontSize: '20px',
-    cursor: 'pointer',
-    color: '#999',
-  },
-  modalBody: {
-    padding: '20px',
-  },
-  userProfileHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '20px',
-    marginBottom: '20px',
-  },
-  userInfoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '15px',
-    marginBottom: '20px',
-  },
-  infoItem: {
-    '& label': {
-      display: 'block',
-      fontSize: '12px',
-      color: '#999',
-      marginBottom: '3px',
-    },
-    '& p': {
-      margin: 0,
-      fontWeight: '500',
-    },
-  },
-  suspensionInfo: {
-    padding: '15px',
-    backgroundColor: '#fff3cd',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  modalActions: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '10px',
-  },
-  modalAdminButton: {
-    padding: '10px',
-    backgroundColor: '#9b59b6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  modalResetButton: {
-    padding: '10px',
-    backgroundColor: '#f39c12',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  modalSuspendButton: {
-    padding: '10px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  modalUnsuspendButton: {
-    padding: '10px',
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  modalDeleteButton: {
-    padding: '10px',
-    backgroundColor: '#c0392b',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  confirmDialog: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    maxWidth: '400px',
-    width: '90%',
-  },
-  formGroup: {
-    marginBottom: '15px',
-  },
-  textarea: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    marginTop: '5px',
-    fontFamily: 'inherit',
-  },
-  select: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    marginTop: '5px',
-  },
-  confirmActions: {
-    display: 'flex',
-    gap: '10px',
-    marginTop: '20px',
-  },
-  confirmButton: {
-    flex: 1,
-    padding: '10px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    flex: 1,
-    padding: '10px',
-    backgroundColor: '#95a5a6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-};
 
 export default AdminDashboard;

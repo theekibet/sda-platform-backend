@@ -1,3 +1,4 @@
+// src/modules/members/members.controller.ts
 import { 
   Controller, Get, Post, Body, Param, Patch, Delete, UseGuards,
   UnauthorizedException, UseInterceptors, UploadedFile, 
@@ -30,6 +31,7 @@ export class MembersController {
     @CurrentUser() user: any,
     @Body() updateProfileDto: UpdateProfileDto
   ) {
+    // Regular members update their own profile - isModerator defaults to false
     return this.membersService.updateProfile(user.id, updateProfileDto);
   }
 

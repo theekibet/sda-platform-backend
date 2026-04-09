@@ -2,14 +2,14 @@
 import React from 'react';
 
 const Avatar = ({ user, size = 'medium', className = '' }) => {
-  // Map size to Tailwind width/height classes
-  const sizeClasses = {
-    small: 'w-8 h-8',
-    medium: 'w-12 h-12',
-    large: 'w-16 h-16',
-    xlarge: 'w-24 h-24',
+  // Map size to Tailwind width/height classes and corresponding text size
+  const sizeConfig = {
+    small: { box: 'w-8 h-8', text: 'text-xs' },
+    medium: { box: 'w-12 h-12', text: 'text-sm' },
+    large: { box: 'w-16 h-16', text: 'text-base' },
+    xlarge: { box: 'w-24 h-24', text: 'text-lg' },
   };
-  const sizeClass = sizeClasses[size] || sizeClasses.medium;
+  const { box: sizeClass, text: textSizeClass } = sizeConfig[size] || sizeConfig.medium;
 
   // Get the API base URL from environment or default
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -40,6 +40,8 @@ const Avatar = ({ user, size = 'medium', className = '' }) => {
             e.target.style.display = 'none';
             e.target.parentElement.classList.remove('bg-transparent');
             e.target.parentElement.classList.add('bg-primary-500');
+            // Add the text size class and set inner text
+            e.target.parentElement.classList.add(textSizeClass);
             e.target.parentElement.innerText = initials || '?';
           }}
         />
@@ -50,8 +52,7 @@ const Avatar = ({ user, size = 'medium', className = '' }) => {
   // No image, show initials
   return (
     <div
-      className={`rounded-full flex items-center justify-center bg-primary-500 text-white font-bold ${sizeClass} ${className}`}
-      style={{ fontSize: `calc(${parseInt(sizeClass.match(/w-(\d+)/)?.[1] || 12)}px * 0.4)` }}
+      className={`rounded-full flex items-center justify-center bg-primary-500 text-white font-bold ${sizeClass} ${textSizeClass} ${className}`}
     >
       {initials || '?'}
     </div>

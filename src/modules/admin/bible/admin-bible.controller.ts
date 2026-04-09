@@ -4,13 +4,13 @@ import {
   UseGuards, ParseIntPipe, Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../../../common/guards/admin.guard';
+import { ModeratorGuard } from '../../../common/guards/moderator.guard'; // ✅ CHANGED from AdminGuard
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma.service';
 import { BibleVerseService } from '../../bible/bible-verse.service';
 
 @Controller('admin/bible')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, ModeratorGuard) // ✅ CHANGED: Now accessible to moderators + super admin
 export class AdminBibleController {
   private readonly logger = new Logger(AdminBibleController.name);
 

@@ -1,20 +1,23 @@
 import { Module } from '@nestjs/common';
 import { CommunityController } from './community.controller';
 import { CommunityService } from './community.service';
+import { PostAnalyticsService } from './post-analytics.service';
 import { PrismaService } from '../../prisma.service';
-import { CommunityCron } from './community.cron'; // 👈 Import the cron service
+import { CommunityCron } from './community.cron';
 
 @Module({
   controllers: [
-    CommunityController,  // ← Trending endpoint is now inside this controller
+    CommunityController,
   ],
   providers: [
     CommunityService,
+    PostAnalyticsService,
     PrismaService,
-    CommunityCron,        // 👈 Add the cron job to providers
+    CommunityCron,
   ],
   exports: [
-    CommunityService,      // ← Export if other modules need this service
+    CommunityService,
+    PostAnalyticsService,
   ],
 })
 export class CommunityModule {}

@@ -1,3 +1,4 @@
+// src/components/community/PostCard.jsx
 import React, { useState } from 'react';
 import { renderLinks, getMeetingPlatform } from '../../utils/linkRenderer';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,9 +8,23 @@ import ShareMenu from './ShareMenu';
 import PostBookmark from './PostBookmark';
 import DonationProgressUpdater from './DonationProgressUpdater';
 import PostEditModal from './PostEditModal';
+import PostAnalytics from './PostAnalytics';
 
 // Get API base URL from environment
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+const getImageUrl = (avatarUrl) => {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith('http')) return avatarUrl;
+  return `${API_BASE_URL}${avatarUrl}`;
+};
+
+const getInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+};
 
 const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpdated }) => {
   const { user, isAdmin } = useAuth();
@@ -18,6 +33,7 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDonationUpdater, setShowDonationUpdater] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showResponseMenu, setShowResponseMenu] = useState(false);
@@ -27,6 +43,7 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
   // Check permissions
   const canDelete = () => user && (user.id === post.authorId || isAdmin);
   const canEdit = () => user && (user.id === post.authorId || isAdmin);
+  const canViewAnalytics = () => user && (user.id === post.authorId || isAdmin);
   const canUpdateDonation = () => user && (user.id === post.authorId || isAdmin);
 
   // Handle deletion
@@ -176,11 +193,8 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
     return name.substring(0, 2).toUpperCase();
   };
 
-  const getImageUrl = (avatarUrl) => {
-    if (!avatarUrl) return null;
-    if (avatarUrl.startsWith('http')) return avatarUrl;
-    return `${API_BASE_URL}${avatarUrl}`;
-  };
+  const avatarUrl = getImageUrl(post.author?.avatarUrl);
+  const authorInitials = getAuthorInitials(post.author?.name);
 
   const calculateProgress = () => {
     if (!post.goalAmount || post.goalAmount === 0) return 0;
@@ -255,7 +269,6 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
 
   const locationDisplay = getLocationDisplay();
   const status = getPostStatus();
-  const avatarUrl = getImageUrl(post.author?.avatarUrl);
   const supportCount = post.stats?.supportCount || 0;
   const commentCount = post.stats?.commentCount || 0;
   const userHasSupported = post.userHasSupported || false;
@@ -266,7 +279,7 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
       <div className="p-5 pb-0">
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white flex items-center justify-center font-semibold text-sm shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white flex items-center justify-center font-semibold text-sm shadow-sm overflow-hidden">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -275,11 +288,11 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
                   onError={(e) => {
                     e.target.style.display = 'none';
                     e.target.parentElement.style.backgroundColor = '#667eea';
-                    e.target.parentElement.innerText = getAuthorInitials(post.author?.name || 'Unknown');
+                    e.target.parentElement.innerText = authorInitials;
                   }}
                 />
               ) : (
-                getAuthorInitials(post.author?.name || 'Unknown')
+                authorInitials
               )}
             </div>
             <div>
@@ -485,6 +498,17 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
             variant="icon"
           />
           
+          {/* Analytics Button - Only for post owners and admins */}
+          {canViewAnalytics() && (
+            <button
+              onClick={() => setShowAnalytics(true)}
+              className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+              title="View Analytics"
+            >
+              📊
+            </button>
+          )}
+          
           {canEdit() && (
             <button
               onClick={() => setShowEditModal(true)}
@@ -543,6 +567,18 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
           onClose={() => setShowDonationUpdater(false)}
           onUpdate={handleDonationUpdate}
         />
+      )}
+      
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowAnalytics(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <PostAnalytics 
+              postId={post.id} 
+              onClose={() => setShowAnalytics(false)} 
+            />
+          </div>
+        </div>
       )}
     </div>
   );

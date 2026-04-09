@@ -6,8 +6,8 @@ import {
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/admin.guard';
-import { SuperAdminGuard } from '../../common/guards/super-admin.guard'; // ✅ NEW
+import { ModeratorGuard } from '../../common/guards/moderator.guard'; // ✅ NEW
+import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserQueryDto } from './dto/user-query.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
@@ -58,7 +58,7 @@ interface EngagementMetricsResponse {
 }
 
 @Controller('admin')
-@UseGuards(JwtAuthGuard, AdminGuard) // All routes require at minimum: logged in + isAdmin
+@UseGuards(JwtAuthGuard, ModeratorGuard) // ✅ CHANGED: All routes need login + moderator/superadmin
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -90,14 +90,14 @@ export class AdminController {
     return this.adminService.suspendUser(admin.id, userId, dto);
   }
 
-  // ✅ SUPER ADMIN ONLY: prevents elevated admins from touching admin status
-  @Post('users/:userId/toggle-admin')
+  // ✅ SUPER ADMIN ONLY: Only you can assign/remove moderators
+  @Post('users/:userId/toggle-moderator') // ✅ CHANGED from toggle-admin
   @UseGuards(SuperAdminGuard)
-  toggleAdmin(
+  toggleModerator( // ✅ CHANGED from toggleAdmin
     @CurrentUser() admin: any,
     @Param('userId') userId: string,
   ) {
-    return this.adminService.toggleAdmin(admin.id, userId);
+    return this.adminService.toggleModerator(admin.id, userId); // ✅ CHANGED
   }
 
   // ✅ SUPER ADMIN ONLY: only super admin can reset other users' passwords
@@ -121,7 +121,7 @@ export class AdminController {
 
   // ============ PHASE 1 ENDPOINTS ============
 
-  // ✅ SUPER ADMIN ONLY: prevents elevated admins from deleting accounts
+  // ✅ SUPER ADMIN ONLY: prevents elevated moderators from deleting accounts
   @Delete('users/:userId')
   @UseGuards(SuperAdminGuard)
   deleteUser(
@@ -131,7 +131,7 @@ export class AdminController {
     return this.adminService.deleteUser(admin.id, userId);
   }
 
-  // ✅ SUPER ADMIN ONLY: bulk actions are too powerful for elevated admins
+  // ✅ SUPER ADMIN ONLY: bulk actions are too powerful for elevated moderators
   @Post('users/bulk')
   @UseGuards(SuperAdminGuard)
   bulkUserAction(

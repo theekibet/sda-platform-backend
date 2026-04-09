@@ -4,14 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   getUsers, 
   suspendUser,
-  toggleAdmin,
+  toggleModerator,           // ✅ changed from toggleAdmin
   adminResetPassword,
   deleteUser,
 } from '../../services/api';
 import Avatar from '../../components/common/Avatar';
-import '../../styles/admin/UserManagement.css'; // Import the CSS file
 
 function UserManagement() {
+  const { user: currentUser } = useAuth(); // logged-in user (should be super admin)
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -25,6 +25,17 @@ function UserManagement() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendDuration, setSuspendDuration] = useState('7');
+
+  // Normalize user for Avatar component
+  const normalizeUserForAvatar = (userData) => {
+    if (!userData) return null;
+    return {
+      name: userData.name || userData.username || 'Unknown',
+      avatarUrl: userData.avatarUrl || userData.avatar || null
+    };
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -35,31 +46,46 @@ function UserManagement() {
       setLoading(true);
       const response = await getUsers({ page: 1, limit: 100 });
       
-      // Process users to ensure avatar URLs are properly formatted
       const processedUsers = (response.data.users || []).map(user => ({
         ...user,
+        // ensure avatarUrl exists
         avatarUrl: user.avatarUrl || null
       }));
       
       setUsers(processedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
-      if (error.response) {
-        alert(`Error: ${error.response.data.message || 'Failed to fetch users'}`);
-      }
+      alert(`Error: ${error.response?.data?.message || 'Failed to fetch users'}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // Suspension handler (works for both suspend & unsuspend)
   const handleSuspendUser = async (userId, reason, duration) => {
     try {
-      await suspendUser(userId, { reason, duration });
+      // suspendUser API expects { suspend: true, reason, until? }
+      const until = duration !== 'permanent' 
+        ? new Date(Date.now() + parseInt(duration) * 86400000).toISOString()
+        : undefined;
+      await suspendUser(userId, { suspend: true, reason, until });
       fetchUsers();
       setShowConfirmDialog(false);
+      setSuspendReason('');
+      setSuspendDuration('7');
       alert('User suspended successfully');
     } catch (error) {
       alert('Error suspending user: ' + error.message);
+    }
+  };
+
+  const handleUnsuspendUser = async (userId) => {
+    try {
+      await suspendUser(userId, { suspend: false });
+      fetchUsers();
+      alert('User unsuspended successfully');
+    } catch (error) {
+      alert('Error unsuspending user: ' + error.message);
     }
   };
 
@@ -75,13 +101,14 @@ function UserManagement() {
     }
   };
 
-  const handleToggleAdmin = async (userId) => {
+  // ✅ Toggle moderator (only for super admin)
+  const handleToggleModerator = async (userId) => {
     try {
-      await toggleAdmin(userId);
+      await toggleModerator(userId);
       fetchUsers();
-      alert('Admin status updated');
+      alert('Moderator status updated');
     } catch (error) {
-      alert('Error updating admin status: ' + error.message);
+      alert('Error updating moderator status: ' + error.message);
     }
   };
 
@@ -97,6 +124,7 @@ function UserManagement() {
     }
   };
 
+  // Bulk selection logic
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedUsers([]);
@@ -123,24 +151,36 @@ function UserManagement() {
 
     if (action === 'delete') {
       if (window.confirm(`⚠️ Delete ${selectedUsers.length} users? This cannot be undone.`)) {
-        // Implement bulk delete
         alert('Bulk delete not yet implemented');
       }
     } else if (action === 'suspend') {
       setConfirmAction({
         type: 'bulk_suspend',
         onConfirm: (reason, duration) => {
-          // Implement bulk suspend
+          // Implement bulk suspend logic here (call backend)
           alert(`Would suspend ${selectedUsers.length} users`);
           setShowConfirmDialog(false);
           setSelectedUsers([]);
           setSelectAll(false);
+          setSuspendReason('');
+          setSuspendDuration('7');
         }
       });
       setShowConfirmDialog(true);
+    } else if (action === 'makeModerator') {
+      // Bulk make moderator (only super admin)
+      if (window.confirm(`Grant moderator privileges to ${selectedUsers.length} users?`)) {
+        // TODO: implement bulk makeModerator API call
+        alert('Bulk make moderator not yet implemented');
+      }
+    } else if (action === 'removeModerator') {
+      if (window.confirm(`Remove moderator privileges from ${selectedUsers.length} users?`)) {
+        alert('Bulk remove moderator not yet implemented');
+      }
     }
   };
 
+  // Filter users based on search and role/status
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,12 +188,12 @@ function UserManagement() {
       (user.phone && user.phone.includes(searchTerm));
     
     let matchesRole = true;
-    if (filters.role === 'admin') {
-      matchesRole = user.isAdmin === true;
+    if (filters.role === 'superadmin') {
+      matchesRole = user.isSuperAdmin === true;
     } else if (filters.role === 'moderator') {
-      matchesRole = user.isModerator === true;
-    } else if (filters.role === 'user') {
-      matchesRole = !user.isAdmin && !user.isModerator;
+      matchesRole = user.isModerator === true && !user.isSuperAdmin;
+    } else if (filters.role === 'member') {
+      matchesRole = !user.isSuperAdmin && !user.isModerator;
     }
     
     let matchesStatus = true;
@@ -166,75 +206,85 @@ function UserManagement() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
+  // Helper to determine if current user can edit another user
+  const canEditUser = (targetUser) => {
+    if (!currentUser) return false;
+    // Super admin can edit anyone except themselves? We'll allow but backend will prevent self-demotion.
+    if (currentUser.isSuperAdmin) return true;
+    return false; // only super admin can access this page anyway (protected by route)
+  };
+
   if (loading) {
     return (
-      <div className="user-management-loading-container">
-        <div className="user-management-loading-spinner"></div>
-        <div className="user-management-loading-text">Loading users...</div>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="w-12 h-12 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <div className="text-gray-500">Loading users...</div>
       </div>
     );
   }
 
   return (
-    <div className="user-management-container">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header Section */}
-      <div className="user-management-header">
-        <div className="user-management-header-left">
-          <h1 className="user-management-title">
-            <span className="user-management-title-icon">👥</span>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+            <span className="text-3xl">👥</span>
             User Management
           </h1>
-          <p className="user-management-subtitle">
-            Manage users, roles, and permissions
-          </p>
+          <p className="text-gray-500 mt-1">Manage users, roles, and permissions</p>
         </div>
         
         {/* Stats Cards */}
-        <div className="user-management-stats-container">
-          <div className="user-management-stat-card">
-            <span className="user-management-stat-value">{users.length}</span>
-            <span className="user-management-stat-label">Total Users</span>
+        <div className="flex gap-3">
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center min-w-[100px] border border-gray-100">
+            <div className="text-2xl font-bold text-primary-600">{users.length}</div>
+            <div className="text-xs text-gray-500">Total Users</div>
           </div>
-          <div className="user-management-stat-card">
-            <span className="user-management-stat-value">{users.filter(u => u.isAdmin).length}</span>
-            <span className="user-management-stat-label">Admins</span>
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center min-w-[100px] border border-gray-100">
+            <div className="text-2xl font-bold text-purple-600">{users.filter(u => u.isSuperAdmin).length}</div>
+            <div className="text-xs text-gray-500">Super Admins</div>
           </div>
-          <div className="user-management-stat-card">
-            <span className="user-management-stat-value">{users.filter(u => u.isSuspended).length}</span>
-            <span className="user-management-stat-label">Suspended</span>
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center min-w-[100px] border border-gray-100">
+            <div className="text-2xl font-bold text-blue-600">{users.filter(u => u.isModerator && !u.isSuperAdmin).length}</div>
+            <div className="text-xs text-gray-500">Moderators</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center min-w-[100px] border border-gray-100">
+            <div className="text-2xl font-bold text-red-600">{users.filter(u => u.isSuspended).length}</div>
+            <div className="text-xs text-gray-500">Suspended</div>
           </div>
         </div>
       </div>
 
       {/* Filters and Actions Bar */}
-      <div className="user-management-filters-bar">
-        <div className="user-management-search-section">
-          <div className="user-management-search-wrapper">
-            <span className="user-management-search-icon">🔍</span>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
             <input
               type="text"
               placeholder="Search by name, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="user-management-search-input"
+              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg w-64 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
           
           <select
             value={filters.role}
             onChange={(e) => setFilters({...filters, role: e.target.value})}
-            className="user-management-filter-select"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">All Roles</option>
-            <option value="admin">Admin</option>
+            <option value="superadmin">Super Admin</option>
             <option value="moderator">Moderator</option>
-            <option value="user">User</option>
+            <option value="member">Member</option>
           </select>
 
           <select
             value={filters.status}
             onChange={(e) => setFilters({...filters, status: e.target.value})}
-            className="user-management-filter-select"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -243,390 +293,406 @@ function UserManagement() {
         </div>
 
         {selectedUsers.length > 0 && (
-          <div className="user-management-bulk-actions">
-            <span className="user-management-selected-count">{selectedUsers.length} selected</span>
+          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+            <span className="text-sm font-medium text-gray-700">{selectedUsers.length} selected</span>
             <button 
               onClick={() => handleBulkAction('suspend')}
-              className="user-management-bulk-suspend-button"
+              className="px-3 py-1 bg-yellow-500 text-white rounded-md text-sm hover:bg-yellow-600 transition"
             >
-              ⛔ Suspend Selected
+              ⛔ Suspend
+            </button>
+            <button 
+              onClick={() => handleBulkAction('makeModerator')}
+              className="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition"
+            >
+              🛡️ Make Moderator
+            </button>
+            <button 
+              onClick={() => handleBulkAction('removeModerator')}
+              className="px-3 py-1 bg-gray-500 text-white rounded-md text-sm hover:bg-gray-600 transition"
+            >
+              🔽 Remove Moderator
             </button>
             <button 
               onClick={() => handleBulkAction('delete')}
-              className="user-management-bulk-delete-button"
+              className="px-3 py-1 bg-red-500 text-white rounded-md text-sm hover:bg-red-600 transition"
             >
-              🗑️ Delete Selected
+              🗑️ Delete
             </button>
           </div>
         )}
       </div>
 
       {/* Users Table */}
-      <div className="user-management-table-container">
-        <table className="user-management-table">
-          <thead className="user-management-table-head">
-            <tr>
-              <th className="user-management-checkbox-cell">
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={handleSelectAll}
-                  className="user-management-checkbox"
-                />
-              </th>
-              <th>User</th>
-              <th>Contact</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Joined</th>
-              <th>Last Active</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map(user => (
-              <tr key={user.id} className="user-management-table-row">
-                <td className="user-management-checkbox-cell">
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-10 px-4 py-3">
                   <input
                     type="checkbox"
-                    checked={selectedUsers.includes(user.id)}
-                    onChange={() => handleSelectUser(user.id)}
-                    className="user-management-checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    className="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
                   />
-                </td>
-                <td>
-                  <div className="user-management-user-cell">
-                    <Avatar user={user} size="small" />
-                    <div className="user-management-user-info">
-                      <div className="user-management-user-name">{user.name}</div>
-                      <div className="user-management-user-email">{user.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="user-management-contact-info">
-                    <div>{user.phone || '—'}</div>
-                    {user.city && <div className="user-management-user-location">📍 {user.city}</div>}
-                  </div>
-                </td>
-                <td>
-                  <span className={`user-management-role-badge ${user.isAdmin ? 'user-management-admin-role' : ''} ${user.isModerator ? 'user-management-moderator-role' : ''}`}>
-                    {user.isAdmin ? 'Admin' : user.isModerator ? 'Moderator' : 'User'}
-                  </span>
-                </td>
-                <td>
-                  <span className={`user-management-status-badge ${user.isSuspended ? 'user-management-suspended-status' : 'user-management-active-status'}`}>
-                    {user.isSuspended ? 'Suspended' : 'Active'}
-                  </span>
-                  {user.suspendedUntil && (
-                    <div className="user-management-suspended-until">
-                      until {new Date(user.suspendedUntil).toLocaleDateString()}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <div className="user-management-date-cell">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </div>
-                </td>
-                <td>
-                  <div className="user-management-date-cell">
-                    {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString() : 'Never'}
-                  </div>
-                </td>
-                <td>
-                  <div className="user-management-action-buttons">
-                    <button
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setShowUserModal(true);
-                      }}
-                      className="user-management-action-button"
-                      title="View Details"
-                    >
-                      👁️
-                    </button>
-                    <button
-                      onClick={() => handleToggleAdmin(user.id)}
-                      className="user-management-action-button"
-                      title={user.isAdmin ? 'Remove Admin' : 'Make Admin'}
-                    >
-                      {user.isAdmin ? '👑' : '⭐'}
-                    </button>
-                    <button
-                      onClick={() => handleResetPassword(user.id)}
-                      className="user-management-action-button"
-                      title="Reset Password"
-                    >
-                      🔑
-                    </button>
-                    <button
-                      onClick={() => {
-                        setConfirmAction({
-                          type: 'suspend',
-                          user: user,
-                          onConfirm: (reason, duration) => handleSuspendUser(user.id, reason, duration)
-                        });
-                        setShowConfirmDialog(true);
-                      }}
-                      className={`user-management-action-button ${user.isSuspended ? 'user-management-unsuspend-button' : 'user-management-suspend-button'}`}
-                      title={user.isSuspended ? 'Unsuspend' : 'Suspend'}
-                    >
-                      {user.isSuspended ? '✅' : '⛔'}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(user.id)}
-                      className="user-management-action-button user-management-delete-button"
-                      title="Delete User"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </td>
+                </th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">User</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Contact</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Role</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Status</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Joined</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Last Active</th>
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-600">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredUsers.map(user => {
+                const isSuperAdmin = user.isSuperAdmin === true;
+                const isModerator = user.isModerator === true && !isSuperAdmin;
+                const isMember = !isSuperAdmin && !isModerator;
+                const isCurrentUser = currentUser?.id === user.id;
+
+                return (
+                  <tr key={user.id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => handleSelectUser(user.id)}
+                        disabled={isSuperAdmin && isCurrentUser} // cannot select yourself
+                        className="rounded border-gray-300 text-primary-500 focus:ring-primary-500 disabled:opacity-50"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar user={normalizeUserForAvatar(user)} size="medium" />
+                        <div>
+                          <div className="font-medium text-gray-800">{user.name}</div>
+                          <div className="text-xs text-gray-400">{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-600">{user.phone || '—'}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        isSuperAdmin ? 'bg-purple-100 text-purple-700' :
+                        isModerator ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {isSuperAdmin ? '👑 Super Admin' : isModerator ? '🛡️ Moderator' : '👤 Member'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                          user.isSuspended ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                        }`}>
+                          {user.isSuspended ? '⛔ Suspended' : '✅ Active'}
+                        </span>
+                        {user.suspendedUntil && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            until {new Date(user.suspendedUntil).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleDateString() : 'Never'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowUserModal(true);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+                          title="View Details"
+                        >
+                          👁️
+                        </button>
+                        
+                        {/* Only show toggle moderator if not super admin and not current user */}
+                        {!isSuperAdmin && canEditUser(user) && (
+                          <button
+                            onClick={() => handleToggleModerator(user.id)}
+                            className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+                            title={isModerator ? 'Remove Moderator' : 'Make Moderator'}
+                          >
+                            {isModerator ? '🔽' : '🛡️'}
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => handleResetPassword(user.id)}
+                          className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+                          title="Reset Password"
+                        >
+                          🔑
+                        </button>
+                        
+                        {!user.isSuspended ? (
+                          <button
+                            onClick={() => {
+                              setConfirmAction({
+                                type: 'suspend',
+                                user: user,
+                                onConfirm: (reason, duration) => handleSuspendUser(user.id, reason, duration)
+                              });
+                              setShowConfirmDialog(true);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-yellow-500 rounded-md transition"
+                            title="Suspend"
+                          >
+                            ⛔
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUnsuspendUser(user.id)}
+                            className="p-1.5 text-gray-400 hover:text-green-500 rounded-md transition"
+                            title="Unsuspend"
+                          >
+                            ✅
+                          </button>
+                        )}
+                        
+                        {!isSuperAdmin && canEditUser(user) && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-md transition"
+                            title="Delete User"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
         {filteredUsers.length === 0 && (
-          <div className="user-management-no-results">
-            <div className="user-management-no-results-icon">🔍</div>
-            <h3>No users found</h3>
-            <p>Try adjusting your search or filters</p>
+          <div className="text-center py-12">
+            <div className="text-5xl mb-3">🔍</div>
+            <div className="text-gray-500 font-medium">No users found</div>
+            <div className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</div>
           </div>
         )}
       </div>
 
-      {/* User Details Modal */}
+      {/* User Detail Modal */}
       {showUserModal && selectedUser && (
-        <div className="user-management-modal-overlay" onClick={() => setShowUserModal(false)}>
-          <div className="user-management-modal" onClick={e => e.stopPropagation()}>
-            <div className="user-management-modal-header">
-              <h2 className="user-management-modal-title">User Profile</h2>
-              <button onClick={() => setShowUserModal(false)} className="user-management-modal-close">✕</button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowUserModal(false)}>
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">User Profile</h2>
+              <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
             
-            <div className="user-management-modal-body">
-              <div className="user-management-profile-header">
-                <Avatar user={selectedUser} size="xlarge" />
-                <div className="user-management-profile-title">
-                  <h3>{selectedUser.name}</h3>
-                  <p>{selectedUser.email}</p>
-                  <div className="user-management-profile-badges">
-                    {selectedUser.isAdmin && <span className="user-management-profile-admin-badge">Admin</span>}
-                    {selectedUser.isSuspended && <span className="user-management-profile-suspended-badge">Suspended</span>}
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <Avatar user={normalizeUserForAvatar(selectedUser)} size="xlarge" />
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">{selectedUser.name}</h3>
+                  <p className="text-gray-500">{selectedUser.email}</p>
+                  <div className="flex gap-2 mt-2">
+                    {selectedUser.isSuperAdmin && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Super Admin</span>
+                    )}
+                    {selectedUser.isModerator && !selectedUser.isSuperAdmin && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Moderator</span>
+                    )}
+                    {selectedUser.isSuspended && (
+                      <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Suspended</span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="user-management-info-grid">
-                <div className="user-management-info-card">
-                  <div className="user-management-info-label">📞 Phone</div>
-                  <div className="user-management-info-value">{selectedUser.phone || 'Not provided'}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">📞 Phone</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.phone || 'Not provided'}</div>
                 </div>
-                <div className="user-management-info-card">
-                  <div className="user-management-info-label">📍 Location</div>
-                  <div className="user-management-info-value">
-                    {[selectedUser.city, selectedUser.region, selectedUser.country]
-                      .filter(Boolean).join(', ') || 'Not set'}
-                  </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">📍 Location</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.locationName || 'Not set'}</div>
                 </div>
-                <div className="user-management-info-card">
-                  <div className="user-management-info-label">🎂 Age</div>
-                  <div className="user-management-info-value">{selectedUser.age || 'Not provided'}</div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">🎂 Age</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.age || 'Not provided'}</div>
                 </div>
-                <div className="user-management-info-card">
-                  <div className="user-management-info-label">⚥ Gender</div>
-                  <div className="user-management-info-value">{selectedUser.gender || 'Not specified'}</div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">⚥ Gender</div>
+                  <div className="text-sm font-medium text-gray-700">{selectedUser.gender || 'Not specified'}</div>
                 </div>
-                <div className="user-management-info-card">
-                  <div className="user-management-info-label">📅 Joined</div>
-                  <div className="user-management-info-value">
-                    {new Date(selectedUser.createdAt).toLocaleDateString()}
-                  </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">📅 Joined</div>
+                  <div className="text-sm font-medium text-gray-700">{new Date(selectedUser.createdAt).toLocaleDateString()}</div>
                 </div>
-                <div className="user-management-info-card">
-                  <div className="user-management-info-label">⏱️ Last Active</div>
-                  <div className="user-management-info-value">
-                    {selectedUser.lastActiveAt 
-                      ? new Date(selectedUser.lastActiveAt).toLocaleDateString()
-                      : 'Never'}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-400 mb-1">⏱️ Last Active</div>
+                  <div className="text-sm font-medium text-gray-700">
+                    {selectedUser.lastActiveAt ? new Date(selectedUser.lastActiveAt).toLocaleDateString() : 'Never'}
                   </div>
                 </div>
               </div>
 
               {selectedUser.isSuspended && (
-                <div className="user-management-suspension-card">
-                  <h4 className="user-management-suspension-title">⛔ Suspension Details</h4>
-                  <p><strong>Reason:</strong> {selectedUser.suspensionReason}</p>
-                  <p><strong>Until:</strong> {selectedUser.suspendedUntil 
-                    ? new Date(selectedUser.suspendedUntil).toLocaleDateString()
-                    : 'Permanent'}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-red-800 mb-2">⛔ Suspension Details</h4>
+                  <p className="text-sm text-red-700"><strong>Reason:</strong> {selectedUser.suspensionReason || 'No reason provided'}</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    <strong>Until:</strong> {selectedUser.suspendedUntil 
+                      ? new Date(selectedUser.suspendedUntil).toLocaleDateString()
+                      : 'Permanent'}
+                  </p>
                 </div>
               )}
 
               {selectedUser.adminNotes && (
-                <div className="user-management-notes-card">
-                  <h4 className="user-management-notes-title">📝 Admin Notes</h4>
-                  <p>{selectedUser.adminNotes}</p>
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-gray-700 mb-2">📝 Admin Notes</h4>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedUser.adminNotes}</p>
                 </div>
               )}
 
-              <div className="user-management-modal-actions">
-                <button
-                  onClick={() => handleToggleAdmin(selectedUser.id)}
-                  className="user-management-modal-button"
-                >
-                  {selectedUser.isAdmin ? '👑 Remove Admin' : '⭐ Make Admin'}
-                </button>
+              <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+                {!selectedUser.isSuperAdmin && canEditUser(selectedUser) && (
+                  <button
+                    onClick={() => handleToggleModerator(selectedUser.id)}
+                    className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition text-sm"
+                  >
+                    {selectedUser.isModerator ? '🔽 Remove Moderator' : '🛡️ Make Moderator'}
+                  </button>
+                )}
                 <button
                   onClick={() => handleResetPassword(selectedUser.id)}
-                  className="user-management-modal-button"
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition text-sm"
                 >
                   🔑 Reset Password
                 </button>
-                <button
-                  onClick={() => {
-                    setShowUserModal(false);
-                    setConfirmAction({
-                      type: 'suspend',
-                      user: selectedUser,
-                      onConfirm: (reason, duration) => handleSuspendUser(selectedUser.id, reason, duration)
-                    });
-                    setShowConfirmDialog(true);
-                  }}
-                  className={`user-management-modal-button ${selectedUser.isSuspended ? 'user-management-modal-unsuspend-button' : 'user-management-modal-suspend-button'}`}
-                >
-                  {selectedUser.isSuspended ? '✅ Unsuspend User' : '⛔ Suspend User'}
-                </button>
-                <button
-                  onClick={() => handleDeleteUser(selectedUser.id)}
-                  className="user-management-modal-button user-management-modal-delete-button"
-                >
-                  🗑️ Delete User
-                </button>
+                {!selectedUser.isSuspended ? (
+                  <button
+                    onClick={() => {
+                      setShowUserModal(false);
+                      setConfirmAction({
+                        type: 'suspend',
+                        user: selectedUser,
+                        onConfirm: (reason, duration) => handleSuspendUser(selectedUser.id, reason, duration)
+                      });
+                      setShowConfirmDialog(true);
+                    }}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm"
+                  >
+                    ⛔ Suspend User
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleUnsuspendUser(selectedUser.id)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
+                  >
+                    ✅ Unsuspend User
+                  </button>
+                )}
+                {!selectedUser.isSuperAdmin && canEditUser(selectedUser) && (
+                  <button
+                    onClick={() => handleDeleteUser(selectedUser.id)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
+                  >
+                    🗑️ Delete User
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog (suspend) */}
       {showConfirmDialog && confirmAction && (
-        <div className="user-management-modal-overlay" onClick={() => setShowConfirmDialog(false)}>
-          <div className="user-management-confirm-dialog" onClick={e => e.stopPropagation()}>
-            <div className="user-management-confirm-header">
-              <span className="user-management-confirm-icon">⚠️</span>
-              <h3 className="user-management-confirm-title">
-                {confirmAction.type === 'suspend' ? 'Suspend User' : 'Confirm Action'}
-              </h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirmDialog(false)}>
+          <div className="bg-white rounded-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">⚠️</span>
+                <h3 className="text-xl font-bold text-gray-800">
+                  {confirmAction.type === 'suspend' ? 'Suspend User' : 'Confirm Bulk Action'}
+                </h3>
+              </div>
+              
+              {(confirmAction.type === 'suspend' || confirmAction.type === 'bulk_suspend') && (
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    {confirmAction.type === 'suspend' 
+                      ? `Suspend ${confirmAction.user?.name}?`
+                      : `Suspend ${selectedUsers.length} selected users?`
+                    }
+                  </p>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason for suspension:</label>
+                    <textarea
+                      value={suspendReason}
+                      onChange={(e) => setSuspendReason(e.target.value)}
+                      placeholder="Enter reason..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration:</label>
+                    <select
+                      value={suspendDuration}
+                      onChange={(e) => setSuspendDuration(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="1">1 day</option>
+                      <option value="7">7 days</option>
+                      <option value="30">30 days</option>
+                      <option value="permanent">Permanent</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        if (suspendReason.trim()) {
+                          confirmAction.onConfirm(suspendReason, suspendDuration);
+                          setSuspendReason('');
+                          setSuspendDuration('7');
+                        } else {
+                          alert('Please provide a reason');
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
+                    >
+                      Confirm Suspension
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowConfirmDialog(false);
+                        setSuspendReason('');
+                        setSuspendDuration('7');
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            
-            {confirmAction.type === 'suspend' && (
-              <div className="user-management-confirm-body">
-                <p className="user-management-confirm-message">
-                  Suspend <strong>{confirmAction.user?.name}</strong>?
-                </p>
-                
-                <div className="user-management-form-group">
-                  <label className="user-management-form-label">Reason for suspension:</label>
-                  <textarea
-                    placeholder="Enter reason..."
-                    className="user-management-textarea"
-                    rows="3"
-                    id="suspendReason"
-                  />
-                </div>
-                
-                <div className="user-management-form-group">
-                  <label className="user-management-form-label">Duration:</label>
-                  <select className="user-management-select" id="suspendDuration">
-                    <option value="1">1 day</option>
-                    <option value="7">7 days</option>
-                    <option value="30">30 days</option>
-                    <option value="permanent">Permanent</option>
-                  </select>
-                </div>
-
-                <div className="user-management-confirm-actions">
-                  <button
-                    onClick={() => {
-                      const reason = document.getElementById('suspendReason').value;
-                      const duration = document.getElementById('suspendDuration').value;
-                      if (reason) {
-                        confirmAction.onConfirm(reason, duration);
-                        setShowConfirmDialog(false);
-                      } else {
-                        alert('Please provide a reason');
-                      }
-                    }}
-                    className="user-management-confirm-button"
-                  >
-                    Confirm Suspension
-                  </button>
-                  <button
-                    onClick={() => setShowConfirmDialog(false)}
-                    className="user-management-cancel-button"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {confirmAction.type === 'bulk_suspend' && (
-              <div className="user-management-confirm-body">
-                <p className="user-management-confirm-message">
-                  Suspend <strong>{selectedUsers.length} selected users</strong>?
-                </p>
-                
-                <div className="user-management-form-group">
-                  <label className="user-management-form-label">Reason for suspension:</label>
-                  <textarea
-                    placeholder="Enter reason..."
-                    className="user-management-textarea"
-                    rows="3"
-                    id="suspendReason"
-                  />
-                </div>
-                
-                <div className="user-management-form-group">
-                  <label className="user-management-form-label">Duration:</label>
-                  <select className="user-management-select" id="suspendDuration">
-                    <option value="1">1 day</option>
-                    <option value="7">7 days</option>
-                    <option value="30">30 days</option>
-                    <option value="permanent">Permanent</option>
-                  </select>
-                </div>
-
-                <div className="user-management-confirm-actions">
-                  <button
-                    onClick={() => {
-                      const reason = document.getElementById('suspendReason').value;
-                      const duration = document.getElementById('suspendDuration').value;
-                      if (reason) {
-                        confirmAction.onConfirm(reason, duration);
-                        setShowConfirmDialog(false);
-                        setSelectedUsers([]);
-                        setSelectAll(false);
-                      } else {
-                        alert('Please provide a reason');
-                      }
-                    }}
-                    className="user-management-confirm-button"
-                  >
-                    Confirm Bulk Suspension
-                  </button>
-                  <button
-                    onClick={() => setShowConfirmDialog(false)}
-                    className="user-management-cancel-button"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

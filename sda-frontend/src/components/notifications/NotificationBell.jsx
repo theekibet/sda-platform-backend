@@ -9,7 +9,6 @@ const NotificationBell = () => {
   const bellRef = useRef(null);
 
   useEffect(() => {
-    // Request browser notification permission on mount
     requestBrowserPermission();
   }, []);
 
@@ -25,19 +24,25 @@ const NotificationBell = () => {
   }, []);
 
   return (
-    <div className="notification-bell-container" ref={bellRef}>
+    <div className="relative" ref={bellRef}>
       <button
-        className="notification-bell"
+        className="relative p-2 text-gray-600 hover:text-gray-800 transition-colors duration-200 focus:outline-none"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Notifications"
       >
-        <span className="bell-icon">🔔</span>
+        <span className="text-2xl">🔔</span>
         {unreadCount > 0 && (
-          <span className="notification-badge">{unreadCount}</span>
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full animate-pulse">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 
-      {isOpen && <NotificationDropdown onClose={() => setIsOpen(false)} />}
+      {isOpen && (
+        <div className="absolute right-0 mt-2 z-50">
+          <NotificationDropdown onClose={() => setIsOpen(false)} />
+        </div>
+      )}
     </div>
   );
 };

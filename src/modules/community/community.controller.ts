@@ -14,6 +14,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CommunityService } from './community.service';
+import { PostAnalyticsService } from './post-analytics.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,7 +24,10 @@ import { CommunityResponseDto } from './dto/community-response.dto';
 
 @Controller('community')
 export class CommunityController {
-  constructor(private readonly communityService: CommunityService) {}
+  constructor(
+    private readonly communityService: CommunityService,
+    private readonly postAnalyticsService: PostAnalyticsService,
+  ) {}
 
   /**
    * ============================================
@@ -189,6 +193,26 @@ export class CommunityController {
     return {
       success: true,
       data: post,
+    };
+  }
+
+  /**
+   * Get post analytics (requires login, only author or admin)
+   */
+  @Get('posts/:id/analytics')
+  @UseGuards(JwtAuthGuard)
+  async getPostAnalytics(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ): Promise<any> {
+    const analytics = await this.postAnalyticsService.getPostAnalytics(
+      id,
+      user.id,
+      user.isAdmin || false,
+    );
+    return {
+      success: true,
+      data: analytics,
     };
   }
 

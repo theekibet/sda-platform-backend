@@ -34,7 +34,8 @@ export class MaintenanceService {
           updatedAt: true,
           lastActiveAt: true,
           isActive: true,
-          isAdmin: true,
+          isModerator: true,      // ✅ CHANGED from isAdmin
+          isSuperAdmin: true,     // ✅ ADDED
           isSuspended: true,
           suspendedUntil: true,
           suspensionReason: true,

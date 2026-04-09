@@ -3,9 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
-  const { user, isAdmin } = useAuth();
+  const { user, hasModeratorAccess, isSuperAdmin } = useAuth();
   const location = useLocation();
-  const isAdminRoute = location.pathname.startsWith('/admin');
 
   const memberLinks = [
     { path: '/dashboard', icon: '🏠', label: 'Dashboard' },
@@ -22,19 +21,24 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/learning', icon: '📚', label: 'Learning Hub' },
   ];
 
-  const adminLinks = [
+  // Links available to all moderators (including super admins)
+  const moderatorLinks = [
     { path: '/admin/dashboard', icon: '📊', label: 'Dashboard' },
-    { path: '/admin/users', icon: '👥', label: 'User Management' },
     { path: '/admin/moderation', icon: '📝', label: 'Content Moderation' },
     { path: '/admin/bible/queue', icon: '📖', label: 'Verse Moderation' },
     { path: '/admin/announcements', icon: '📢', label: 'Announcements' },
     { path: '/admin/analytics', icon: '📈', label: 'Analytics' },
+    { path: '/admin/security/sessions', icon: '🖥️', label: 'Sessions (View Only)' },
+    { path: '/admin/security/attempts', icon: '🔐', label: 'Login Attempts' },
+    { path: '/admin/health', icon: '🏥', label: 'System Health' },
+  ];
+
+  // Links only for super admins
+  const superAdminLinks = [
+    { path: '/admin/users', icon: '👥', label: 'User Management' },
     { path: '/admin/settings', icon: '⚙️', label: 'Settings' },
     { path: '/admin/security/ip', icon: '🔒', label: 'IP Blocking' },
-    { path: '/admin/security/sessions', icon: '🖥️', label: 'Sessions' },
-    { path: '/admin/security/attempts', icon: '🔐', label: 'Login Attempts' },
     { path: '/admin/backups', icon: '💾', label: 'Backups' },
-    { path: '/admin/health', icon: '🏥', label: 'System Health' },
   ];
 
   if (!user) return null;
@@ -69,64 +73,86 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="p-4 space-y-6 overflow-y-auto h-full">
-          {!isAdmin && (
-            <>
-              {/* Main Section */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Main
-                </h4>
-                {memberLinks.map(link => (
-                  <NavLink
-                    key={link.path}
-                    to={link.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                        isActive
-                          ? 'bg-primary-50 text-primary-600'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`
-                    }
-                    onClick={onClose}
-                  >
-                    <span className="text-lg">{link.icon}</span>
-                    <span>{link.label}</span>
-                  </NavLink>
-                ))}
-              </div>
+          {/* Member sections (always visible to everyone) */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Main
+            </h4>
+            {memberLinks.map(link => (
+              <NavLink
+                key={link.path}
+                to={link.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    isActive
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+                onClick={onClose}
+              >
+                <span className="text-lg">{link.icon}</span>
+                <span>{link.label}</span>
+              </NavLink>
+            ))}
+          </div>
 
-              {/* Bible Tools Section */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  📖 Bible Tools
-                </h4>
-                {bibleLinks.map(link => (
-                  <NavLink
-                    key={link.path}
-                    to={link.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                        isActive
-                          ? 'bg-primary-50 text-primary-600'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`
-                    }
-                    onClick={onClose}
-                  >
-                    <span className="text-lg">{link.icon}</span>
-                    <span>{link.label}</span>
-                  </NavLink>
-                ))}
-              </div>
-            </>
-          )}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              📖 Bible Tools
+            </h4>
+            {bibleLinks.map(link => (
+              <NavLink
+                key={link.path}
+                to={link.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                    isActive
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+                onClick={onClose}
+              >
+                <span className="text-lg">{link.icon}</span>
+                <span>{link.label}</span>
+              </NavLink>
+            ))}
+          </div>
 
-          {isAdmin && (
+          {/* Moderator section (visible to anyone with moderator access) */}
+          {hasModeratorAccess && (
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                👑 Admin Panel
+                🛡️ Moderation Tools
               </h4>
-              {adminLinks.map(link => (
+              {moderatorLinks.map(link => (
+                <NavLink
+                  key={link.path}
+                  to={link.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? 'bg-primary-50 text-primary-600'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`
+                  }
+                  onClick={onClose}
+                >
+                  <span className="text-lg">{link.icon}</span>
+                  <span>{link.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
+
+          {/* Super Admin section (only for super admin) */}
+          {isSuperAdmin && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                👑 Super Admin
+              </h4>
+              {superAdminLinks.map(link => (
                 <NavLink
                   key={link.path}
                   to={link.path}

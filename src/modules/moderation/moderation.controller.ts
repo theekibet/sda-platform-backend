@@ -5,14 +5,14 @@ import {
 } from '@nestjs/common';
 import { ModerationService } from './moderation.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/admin.guard';
+import { ModeratorGuard } from '../../common/guards/moderator.guard'; // ✅ CHANGED from AdminGuard
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ModerateContentDto } from './dto/moderate-content.dto';
 import { ModerationQueryDto } from './dto/moderation-query.dto';
 import { ModerationLogsQueryDto } from './dto/moderation-logs-query.dto';
 
 @Controller('admin/moderation')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, ModeratorGuard) // ✅ CHANGED: All moderation is for moderators
 export class ModerationController {
   constructor(private readonly moderationService: ModerationService) {}
 

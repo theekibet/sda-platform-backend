@@ -29,11 +29,19 @@ function Login() {
     setLoginStatus('thinking');
     setCharacterMessage('Checking your credentials...');
 
-    const result = await login(formData.email, formData.password);
+    // ✅ FIX: Pass an object with email and password (not two separate arguments)
+    const result = await login({ email: formData.email, password: formData.password });
 
     if (result.success) {
       setLoginStatus('success');
       setCharacterMessage('Welcome back! 🎉');
+      // Optional: store "rememberMe" in localStorage to keep user logged in longer
+      if (rememberMe) {
+        // You could extend token expiry on backend, or just set a flag
+        localStorage.setItem('rememberMe', 'true');
+      } else {
+        localStorage.removeItem('rememberMe');
+      }
       setTimeout(() => navigate('/dashboard'), 2000);
     } else {
       setLoginStatus('error');

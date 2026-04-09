@@ -1,8 +1,9 @@
+// src/modules/admin/dto/bulk-user-action.dto.ts
 import { IsString, IsNotEmpty, IsArray, IsOptional, IsIn } from 'class-validator';
 
 export class BulkUserActionDto {
-  @IsIn(['suspend', 'unsuspend', 'delete', 'makeAdmin', 'removeAdmin'])
-  action: 'suspend' | 'unsuspend' | 'delete' | 'makeAdmin' | 'removeAdmin';
+  @IsIn(['suspend', 'unsuspend', 'delete', 'makeModerator', 'removeModerator'])  // ✅ CHANGED
+  action: 'suspend' | 'unsuspend' | 'delete' | 'makeModerator' | 'removeModerator';  // ✅ CHANGED
 
   @IsArray()
   @IsString({ each: true })

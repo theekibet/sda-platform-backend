@@ -10,7 +10,7 @@ export class UserQueryDto {
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  isAdmin?: boolean;
+  isModerator?: boolean;  // ✅ CHANGED from isAdmin
 
   @IsOptional()
   @IsBoolean()

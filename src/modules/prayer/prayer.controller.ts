@@ -12,7 +12,6 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrayerService } from './prayer.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -27,27 +26,19 @@ import { UpdateTestimonyDto } from './dto/update-testimony.dto';
 export class PrayerController {
   constructor(private readonly prayerService: PrayerService) {}
 
-  // ============ PRAYER REQUESTS ============
-
   @Post('requests')
-  createPrayerRequest(
-    @CurrentUser() user: any,
-    @Body() dto: CreatePrayerRequestDto,
-  ) {
-    return this.prayerService.createPrayerRequest(
-      user?.id,
-      dto,
-      user?.locationName,
-    );
+  createPrayerRequest(@CurrentUser() user: any, @Body() dto: CreatePrayerRequestDto) {
+    return this.prayerService.createPrayerRequest(user?.id, dto, user?.locationName);
   }
 
   @Get('requests')
   getPrayerRequests(
+    @CurrentUser() user: any,
     @Query('city') city?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
-    return this.prayerService.getPrayerRequests(city, page, limit);
+    return this.prayerService.getPrayerRequests(user?.id, city, page, limit);
   }
 
   @Get('requests/my')
@@ -56,57 +47,43 @@ export class PrayerController {
   }
 
   @Get('requests/trending')
-  getTrendingPrayers() {
-    return this.prayerService.getTrendingPrayers();
+  getTrendingPrayers(@CurrentUser() user: any) {
+    return this.prayerService.getTrendingPrayers(user?.id);
   }
 
   @Get('requests/:id')
-  getPrayerRequestById(@Param('id') id: string) {
-    return this.prayerService.getPrayerRequestById(id);
+  getPrayerRequestById(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.prayerService.getPrayerRequestById(id, user?.id);
   }
 
   @Post('requests/:id/pray')
-  prayForRequest(
-    @CurrentUser() user: any,
-    @Param('id') requestId: string,
-  ) {
+  prayForRequest(@CurrentUser() user: any, @Param('id') requestId: string) {
     return this.prayerService.prayForRequest(user.id, requestId);
   }
 
   @Put('requests/:id')
-  async updatePrayerRequest(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-    @Body() dto: UpdatePrayerRequestDto,
-  ) {
+  async updatePrayerRequest(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdatePrayerRequestDto) {
     return this.prayerService.updatePrayerRequest(user.id, id, dto);
   }
 
   @Delete('requests/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deletePrayerRequest(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async deletePrayerRequest(@CurrentUser() user: any, @Param('id') id: string) {
     await this.prayerService.deletePrayerRequest(user.id, id);
   }
 
-  // ============ TESTIMONIES ============
-
   @Post('testimonies')
-  createTestimony(
-    @CurrentUser() user: any,
-    @Body() dto: CreateTestimonyDto,
-  ) {
+  createTestimony(@CurrentUser() user: any, @Body() dto: CreateTestimonyDto) {
     return this.prayerService.createTestimony(user.id, dto);
   }
 
   @Get('testimonies')
   getTestimonies(
+    @CurrentUser() user: any,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
-    return this.prayerService.getTestimonies(page, limit);
+    return this.prayerService.getTestimonies(user?.id, page, limit);
   }
 
   @Get('testimonies/my')
@@ -115,28 +92,18 @@ export class PrayerController {
   }
 
   @Post('testimonies/:id/encourage')
-  encourageTestimony(
-    @CurrentUser() user: any,
-    @Param('id') testimonyId: string,
-  ) {
+  encourageTestimony(@CurrentUser() user: any, @Param('id') testimonyId: string) {
     return this.prayerService.encourageTestimony(user.id, testimonyId);
   }
 
   @Put('testimonies/:id')
-  async updateTestimony(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-    @Body() dto: UpdateTestimonyDto,
-  ) {
+  async updateTestimony(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateTestimonyDto) {
     return this.prayerService.updateTestimony(user.id, id, dto);
   }
 
   @Delete('testimonies/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteTestimony(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async deleteTestimony(@CurrentUser() user: any, @Param('id') id: string) {
     await this.prayerService.deleteTestimony(user.id, id);
   }
 }

@@ -12,6 +12,31 @@ export interface CreateNotificationDto {
   userId: string;
 }
 
+// Maps notification type strings to preference field names
+const TYPE_TO_PREFERENCE_FIELD: Record<string, keyof any> = {
+  // Community
+  community_post: 'communityPosts',
+  community_response: 'communityResponses',
+  post_mention: 'postMentions',
+  
+  // Discussions
+  discussion_reply: 'discussionReplies',
+  discussion_upvote: 'discussionUpvotes',
+  discussion_mention: 'discussionMentions',
+  
+  // Prayer
+  prayer_response: 'prayerResponses',
+  
+  // Bible / Verse
+  verse_published: 'versePublished',
+  
+  // Groups
+  group_invite: 'groupInvites',
+  
+  // System
+  announcement: 'announcements',
+};
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
@@ -21,10 +46,54 @@ export class NotificationService {
     private notificationGateway: NotificationGateway,
   ) {}
 
-  // Primary creation method
+  /**
+   * Create a notification (respects user preferences)
+   * Returns null if user opted out (in-app or specific type)
+   */
   async create(dto: CreateNotificationDto) {
     this.logger.log(`Creating notification for user ${dto.userId}: ${dto.type}`);
-    
+
+    // 1. Get user's preferences (or create defaults)
+    const prefs = await this.getPreferences(dto.userId);
+
+    // 2. Check if in-app notifications are enabled
+    if (prefs.inAppEnabled === false) {
+      this.logger.debug(`In-app notifications disabled for user ${dto.userId}`);
+      return null;
+    }
+
+    // 3. Map notification type to preference field and check if enabled
+    const prefField = TYPE_TO_PREFERENCE_FIELD[dto.type];
+    if (prefField && prefs[prefField] === false) {
+      this.logger.debug(`Notification type "${dto.type}" disabled for user ${dto.userId}`);
+      return null;
+    }
+
+    // 4. Quiet hours check – skip if within quiet hours
+    if (prefs.quietHoursEnabled === true) {
+      const start = prefs.quietHoursStart;
+      const end = prefs.quietHoursEnd;
+      
+      // Only check if both start and end are defined (not null)
+      if (start !== null && start !== undefined && end !== null && end !== undefined) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        let isQuiet = false;
+        
+        if (start <= end) {
+          isQuiet = currentHour >= start && currentHour < end;
+        } else {
+          isQuiet = currentHour >= start || currentHour < end;
+        }
+        
+        if (isQuiet) {
+          this.logger.debug(`Quiet hours active for user ${dto.userId}, skipping notification`);
+          return null;
+        }
+      }
+    }
+
+    // 5. Create notification record
     try {
       const notification = await this.prisma.notification.create({
         data: {
@@ -38,16 +107,22 @@ export class NotificationService {
 
       this.logger.log(`✅ Notification created with ID: ${notification.id}`);
 
-      // Send real-time notification if user is online
+      // 6. Send real-time notification via WebSocket
       try {
         this.notificationGateway.sendToUser(
-          dto.userId, 
-          'NEW_NOTIFICATION', 
+          dto.userId,
+          'NEW_NOTIFICATION',
           notification
         );
         this.logger.log(`📨 Real-time notification sent to user ${dto.userId}`);
       } catch (wsError) {
         this.logger.error(`❌ Failed to send real-time notification: ${wsError.message}`);
+      }
+
+      // 7. Send email if enabled (integrate with your email service)
+      if (prefs.emailEnabled === true) {
+        // await this.emailService.sendNotificationEmail(userEmail, dto.title, dto.message);
+        this.logger.debug(`Email notification would be sent to user ${dto.userId}`);
       }
 
       return notification;
@@ -57,22 +132,47 @@ export class NotificationService {
     }
   }
 
-  // Alias for create (used by other modules)
+  // Alias for backward compatibility
   async createNotification(dto: CreateNotificationDto) {
     return this.create(dto);
   }
 
+  // Bulk creation (respects preferences per user)
   async createBulk(dtos: CreateNotificationDto[]) {
     this.logger.log(`📦 Creating ${dtos.length} notifications in bulk`);
     
     if (dtos.length === 0) {
-      this.logger.log('⚠️ No notifications to create');
+      return { count: 0 };
+    }
+
+    // Group by user to fetch preferences once per user
+    const userMap = new Map<string, CreateNotificationDto[]>();
+    for (const dto of dtos) {
+      if (!userMap.has(dto.userId)) userMap.set(dto.userId, []);
+      userMap.get(dto.userId)!.push(dto);
+    }
+
+    const allowedNotifications: CreateNotificationDto[] = [];
+
+    for (const [userId, userDtos] of userMap.entries()) {
+      const prefs = await this.getPreferences(userId);
+      if (prefs.inAppEnabled === false) continue;
+
+      for (const dto of userDtos) {
+        const prefField = TYPE_TO_PREFERENCE_FIELD[dto.type];
+        if (prefField && prefs[prefField] === false) continue;
+        allowedNotifications.push(dto);
+      }
+    }
+
+    if (allowedNotifications.length === 0) {
+      this.logger.log('No notifications allowed after preference filtering');
       return { count: 0 };
     }
 
     try {
-      const notifications = await this.prisma.notification.createMany({
-        data: dtos.map(d => ({
+      const result = await this.prisma.notification.createMany({
+        data: allowedNotifications.map(d => ({
           type: d.type,
           title: d.title,
           message: d.message,
@@ -81,16 +181,16 @@ export class NotificationService {
         })),
       });
 
-      this.logger.log(`✅ Successfully created ${notifications.count} notifications`);
+      this.logger.log(`✅ Successfully created ${result.count} notifications`);
 
-      // Send real-time notifications to each user
-      dtos.forEach(dto => {
+      // Send real-time for each
+      allowedNotifications.forEach(dto => {
         try {
           this.notificationGateway.sendToUser(
-            dto.userId, 
-            'NEW_NOTIFICATION', 
-            { 
-              id: `temp-${Date.now()}`,
+            dto.userId,
+            'NEW_NOTIFICATION',
+            {
+              id: `temp-${Date.now()}-${dto.userId}`,
               type: dto.type,
               title: dto.title,
               message: dto.message,
@@ -104,7 +204,7 @@ export class NotificationService {
         }
       });
 
-      return notifications;
+      return result;
     } catch (error) {
       this.logger.error(`❌ Error in createBulk: ${error.message}`);
       throw error;
@@ -115,6 +215,8 @@ export class NotificationService {
     return this.createBulk(dtos);
   }
 
+  // ============ USER NOTIFICATIONS METHODS ============
+  
   async getUserNotifications(userId: string, query: NotificationQueryDto) {
     this.logger.log(`Fetching notifications for user ${userId}`);
     
@@ -143,15 +245,16 @@ export class NotificationService {
         where: { userId, isRead: false, isArchived: false },
       });
 
+      // Safely parse JSON data field
       const parsedNotifications = notifications.map(notif => {
+        let parsedData = null;
         try {
-          return {
-            ...notif,
-            data: notif.data ? JSON.parse(notif.data) : null,
-          };
+          parsedData = notif.data ? JSON.parse(notif.data) : null;
         } catch (e) {
-          return { ...notif, data: null };
+          this.logger.warn(`Invalid JSON in notification ${notif.id}: ${notif.data}`);
+          parsedData = null;
         }
+        return { ...notif, data: parsedData };
       });
 
       return {
@@ -310,13 +413,26 @@ export class NotificationService {
         userId,
         emailEnabled: true,
         inAppEnabled: true,
+        // Community
         communityPosts: true,
         communityResponses: true,
         postMentions: true,
+        // Discussions
         discussionReplies: true,
+        discussionUpvotes: true,
+        discussionMentions: true,
+        // Prayer
         prayerResponses: true,
+        // Bible
+        versePublished: true,
+        // Groups
+        groupInvites: true,
+        // System
         announcements: true,
         digestFrequency: 'daily',
+        quietHoursEnabled: false,
+        quietHoursStart: 22,
+        quietHoursEnd: 8,
       },
     });
   }

@@ -7,7 +7,7 @@ import Avatar from '../common/Avatar';
 import NotificationDropdown from '../notifications/NotificationDropdown';
 
 const Navbar = ({ onMenuClick }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasModeratorAccess } = useAuth();
   const { unreadCount, requestBrowserPermission } = useNotifications();
   const navigate = useNavigate();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -184,7 +184,9 @@ const Navbar = ({ onMenuClick }) => {
                     >
                       <span>📚</span> Learning Hub
                     </Link>
-                    {user.isAdmin && (
+                    
+                    {/* Admin Panel link – visible to moderators and super admins */}
+                    {hasModeratorAccess && (
                       <>
                         <hr className="my-1 border-gray-200" />
                         <Link
@@ -196,6 +198,7 @@ const Navbar = ({ onMenuClick }) => {
                         </Link>
                       </>
                     )}
+                    
                     <hr className="my-1 border-gray-200" />
                     <button
                       onClick={handleLogout}
@@ -229,7 +232,7 @@ const Navbar = ({ onMenuClick }) => {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="absolute top-full left-0 w-full bg-white shadow-lg border-t border-gray-200 p-4 flex flex-col space-y-2 md:hidden">
-          {/* Search bar in mobile menu (optional, but convenient) */}
+          {/* Search bar in mobile menu */}
           <form onSubmit={handleSearchSubmit} className="mb-2">
             <div className="relative">
               <input
@@ -291,7 +294,9 @@ const Navbar = ({ onMenuClick }) => {
               >
                 <span>📚</span> Learning Hub
               </Link>
-              {user.isAdmin && (
+              
+              {/* Admin Panel link in mobile menu */}
+              {hasModeratorAccess && (
                 <>
                   <hr className="border-gray-200" />
                   <Link
@@ -303,6 +308,7 @@ const Navbar = ({ onMenuClick }) => {
                   </Link>
                 </>
               )}
+              
               <hr className="border-gray-200" />
               <button
                 onClick={() => {

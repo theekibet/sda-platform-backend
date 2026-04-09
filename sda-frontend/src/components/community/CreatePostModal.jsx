@@ -1,13 +1,11 @@
+// src/components/community/CreatePostModal.jsx
 import React, { useState } from 'react';
 import { communityService } from '../../services/communityService';
-import PostScheduler from './PostScheduler';
 import PostTemplate from './PostTemplate';
 
 function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = false }) {
   const [postType, setPostType] = useState(initialData?.type || 'event');
-  const [showScheduler, setShowScheduler] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState(null);
   const [formData, setFormData] = useState({
     type: initialData?.type || 'event',
     title: initialData?.title || '',
@@ -54,11 +52,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
     setShowTemplateSelector(false);
   };
 
-  const handleSchedule = (date) => {
-    setScheduledDate(date);
-    setShowScheduler(false);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -86,10 +79,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
     try {
       const submitData = { ...formData };
       submitData.type = postType;
-      
-      if (scheduledDate) {
-        submitData.scheduledFor = scheduledDate.toISOString();
-      }
       
       if (submitData.goalAmount) submitData.goalAmount = parseFloat(submitData.goalAmount);
       if (submitData.currentAmount) submitData.currentAmount = parseFloat(submitData.currentAmount);
@@ -278,7 +267,7 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
           </button>
         </div>
 
-        {/* Action Bar */}
+        {/* Action Bar - REMOVED SCHEDULER BUTTON */}
         <div className="flex flex-wrap gap-2 px-6 pt-4 pb-3 border-b border-gray-200">
           <button
             type="button"
@@ -287,18 +276,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
           >
             📋 Use Template
           </button>
-          <button
-            type="button"
-            onClick={() => setShowScheduler(true)}
-            className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
-          >
-            📅 Schedule
-          </button>
-          {scheduledDate && (
-            <span className="px-3 py-1.5 text-xs bg-amber-100 text-amber-800 rounded-full">
-              Scheduled for {scheduledDate.toLocaleDateString()}
-            </span>
-          )}
         </div>
 
         {/* Form */}
@@ -422,12 +399,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
               {loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? '✓ Save Changes' : `✓ Create ${postType.charAt(0).toUpperCase() + postType.slice(1)} Post`)}
             </button>
           </div>
-
-          {scheduledDate && (
-            <p className="text-center text-xs text-amber-600 mt-2">
-              ⏰ This post will be published on {scheduledDate.toLocaleString()}
-            </p>
-          )}
         </form>
       </div>
 
@@ -436,15 +407,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
         <PostTemplate
           onSelectTemplate={handleTemplateSelect}
           onClose={() => setShowTemplateSelector(false)}
-        />
-      )}
-
-      {/* Scheduler Modal */}
-      {showScheduler && (
-        <PostScheduler
-          onSchedule={handleSchedule}
-          onCancel={() => setShowScheduler(false)}
-          initialDate={scheduledDate}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+// src/modules/members/members.service.ts
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { Member } from '@prisma/client';
@@ -36,9 +37,10 @@ export class MembersService {
         longitude: true,
         avatarUrl: true,
         createdAt: true,
-        isAdmin: true,
+        isModerator: true,  // ✅ CHANGED from isAdmin
         isSuperAdmin: true,
-        locationLastUpdated: true,  // ✅ Added for completeness
+        locationLastUpdated: true,
+        dateOfBirth: true,
       },
     });
   
@@ -48,7 +50,8 @@ export class MembersService {
     };
   }
 
-  async updateProfile(userId: string, updateData: UpdateProfileDto) {
+  // ✅ CHANGED: isAdmin parameter renamed to isModerator for clarity
+  async updateProfile(userId: string, updateData: UpdateProfileDto, isModerator: boolean = false) {
     const member = await this.prisma.member.findUnique({
       where: { id: userId }
     });
@@ -72,8 +75,8 @@ export class MembersService {
       updateData.newPassword = await bcrypt.hash(updateData.newPassword, 10);
     }
   
-    // ✅ REMOVED locationPrivacy from destructuring
-    const { currentPassword, newPassword, locationName, ...cleanData } = updateData;
+    // Remove fields that users cannot edit (unless moderator/super admin)
+    const { currentPassword, newPassword, locationName, dateOfBirth, email, ...cleanData } = updateData;
     
     const dataToUpdate: any = { ...cleanData };
     
@@ -88,7 +91,11 @@ export class MembersService {
       dataToUpdate.locationLastUpdated = new Date();
     }
 
-    // ✅ REMOVED the locationPrivacy block completely
+    // Only moderators/super admins can update dateOfBirth or email
+    if (isModerator) {
+      if (dateOfBirth) dataToUpdate.dateOfBirth = new Date(dateOfBirth);
+      if (email) dataToUpdate.email = email;
+    }
     
     const updated = await this.prisma.member.update({
       where: { id: userId },
@@ -105,8 +112,10 @@ export class MembersService {
         locationName: true,
         latitude: true,
         longitude: true,
-        locationLastUpdated: true,  // ✅ Added
-        isAdmin: true,
+        locationLastUpdated: true,
+        dateOfBirth: true,
+        isModerator: true,  // ✅ CHANGED from isAdmin
+        isSuperAdmin: true, // ✅ ADDED
         isSuspended: true,
         createdAt: true,
         lastActiveAt: true,
@@ -139,6 +148,7 @@ export class MembersService {
         longitude: true,
         avatarUrl: true,
         locationLastUpdated: true,
+        dateOfBirth: true,
       },
     });
 

@@ -9,7 +9,7 @@ import Register from './components/members/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 import Dashboard from './pages/members/Dashboard';
-import AdminLogin from './components/auth/AdminLogin';
+
 import AdminDashboard from './pages/admin/AdminDashboard';
 import PrayerWall from './pages/members/PrayerWall';
 import Profile from './pages/members/Profile';
@@ -43,7 +43,7 @@ import AdminVerseQueue from './pages/admin/bible/AdminVerseQueue';
 
 import LearningHub from './pages/members/LearningHub';
 import Bookmarks from './pages/members/Bookmarks';
-
+import NotificationSettings from './components/settings/NotificationSettings';
 // ============ Discussion Components ============
 import DiscussionsFeed from './pages/members/discussions/DiscussionsFeed';
 import CreateDiscussion from './pages/members/discussions/CreateDiscussion';
@@ -76,7 +76,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         
-        <Route path="/admin/login" element={<AdminLogin />} />
+
 
         {/* ===== BIBLE READER FULL-SCREEN ROUTES ===== */}
         <Route path="/bible/read/:book/:chapter?" element={
@@ -126,6 +126,11 @@ function App() {
         <Route path="/profile" element={
           <Layout>
             <Profile />
+          </Layout>
+        } />
+        <Route path="/settings/notifications" element={
+          <Layout>
+            <NotificationSettings />
           </Layout>
         } />
         
