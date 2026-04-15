@@ -237,13 +237,13 @@ function AdminVerseQueue() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: { color: '#f39c12', text: '⏳ Pending', icon: '⏳' },
-      approved: { color: '#3498db', text: '✅ Approved', icon: '✅' },
-      scheduled: { color: '#27ae60', text: '📅 Scheduled', icon: '📅' },
-      published: { color: '#27ae60', text: '✨ Published', icon: '✨' },
-      rejected: { color: '#e74c3c', text: '❌ Rejected', icon: '❌' },
+      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⏳', label: 'Pending' },
+      approved: { bg: 'bg-blue-100', text: 'text-blue-700', icon: '✅', label: 'Approved' },
+      scheduled: { bg: 'bg-green-100', text: 'text-green-700', icon: '📅', label: 'Scheduled' },
+      published: { bg: 'bg-purple-100', text: 'text-purple-700', icon: '✨', label: 'Published' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: '❌', label: 'Rejected' },
     };
-    return badges[status] || { color: '#95a5a6', text: status, icon: '📄' };
+    return badges[status] || { bg: 'bg-gray-100', text: 'text-gray-700', icon: '📄', label: status };
   };
 
   const formatDate = (dateString) => {
@@ -277,7 +277,7 @@ function AdminVerseQueue() {
     switch(sub.status) {
       case 'pending':
         return (
-          <>
+          <div className="flex gap-2">
             <button
               onClick={() => {
                 setSelectedSubmission(sub);
@@ -285,9 +285,12 @@ function AdminVerseQueue() {
                 setScheduledDate('');
                 setShowModal(true);
               }}
-              style={styles.approveButton}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition"
             >
-              ✅ Approve
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Approve
             </button>
             <button
               onClick={() => {
@@ -295,16 +298,19 @@ function AdminVerseQueue() {
                 setAction('reject');
                 setShowModal(true);
               }}
-              style={styles.rejectButton}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
             >
-              ❌ Reject
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Reject
             </button>
-          </>
+          </div>
         );
       
       case 'approved':
         return (
-          <>
+          <div className="flex gap-2">
             <button
               onClick={() => {
                 setSelectedSubmission(sub);
@@ -312,16 +318,22 @@ function AdminVerseQueue() {
                 setScheduledDate(new Date().toISOString().split('T')[0]);
                 setShowModal(true);
               }}
-              style={styles.scheduleButton}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition"
             >
-              📅 Schedule
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Schedule
             </button>
             <button
               onClick={() => handlePublishNow(sub.id)}
-              style={styles.publishNowButton}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition"
               title="Schedule for today"
             >
-              ✨ Publish Now
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Publish Now
             </button>
             <button
               onClick={() => {
@@ -329,17 +341,19 @@ function AdminVerseQueue() {
                 setAction('reject');
                 setShowModal(true);
               }}
-              style={styles.rejectSmallButton}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
               title="Reject"
             >
-              ❌
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
-          </>
+          </div>
         );
       
       case 'scheduled':
         return (
-          <>
+          <div className="flex gap-2">
             <button
               onClick={() => {
                 setSelectedSubmission(sub);
@@ -347,28 +361,38 @@ function AdminVerseQueue() {
                 setScheduledDate(sub.scheduledFor?.split('T')[0] || '');
                 setShowModal(true);
               }}
-              style={styles.rescheduleButton}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition"
             >
-              📅 Reschedule
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Reschedule
             </button>
             {isToday(sub.scheduledFor) && (
               <button
                 onClick={() => handlePublishNow(sub.id)}
-                style={styles.publishNowButton}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition"
               >
-                ✨ Publish Now
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+                Publish Now
               </button>
             )}
-          </>
+          </div>
         );
       
       case 'published':
         return (
           <button
             onClick={() => window.open(`/bible/read/${sub.verse?.book}/${sub.verse?.chapter}`, '_blank')}
-            style={styles.viewButton}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition"
           >
-            👁️ View Verse
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            View Verse
           </button>
         );
       
@@ -381,9 +405,12 @@ function AdminVerseQueue() {
               setScheduledDate('');
               setShowModal(true);
             }}
-            style={styles.reinstateButton}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition"
           >
-            🔄 Reinstate
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reinstate
           </button>
         );
       
@@ -393,57 +420,87 @@ function AdminVerseQueue() {
   };
 
   if (loading) {
-    return <div style={styles.loading}>Loading submissions...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <p className="text-gray-500 mt-3">Loading submissions...</p>
+      </div>
+    );
   }
 
   return (
-    <div style={styles.container}>
+    <div className="space-y-6">
       {/* Stats Bar */}
       {stats && (
-        <div style={styles.statsBar}>
-          <div style={styles.statItem} onClick={() => setFilter('pending')} className={filter === 'pending' ? styles.activeStat : ''}>
-            <span style={styles.statLabel}>Pending</span>
-            <span style={styles.statValue}>{stats.counts.pending}</span>
-          </div>
-          <div style={styles.statItem} onClick={() => setFilter('approved')} className={filter === 'approved' ? styles.activeStat : ''}>
-            <span style={styles.statLabel}>Approved</span>
-            <span style={styles.statValue}>{stats.counts.approved}</span>
-          </div>
-          <div style={styles.statItem} onClick={() => setFilter('scheduled')} className={filter === 'scheduled' ? styles.activeStat : ''}>
-            <span style={styles.statLabel}>Scheduled</span>
-            <span style={styles.statValue}>{stats.counts.scheduled}</span>
-          </div>
-          <div style={styles.statItem} onClick={() => setFilter('published')} className={filter === 'published' ? styles.activeStat : ''}>
-            <span style={styles.statLabel}>Published</span>
-            <span style={styles.statValue}>{stats.counts.published}</span>
-          </div>
-          <div style={styles.statItem} onClick={() => setFilter('rejected')} className={filter === 'rejected' ? styles.activeStat : ''}>
-            <span style={styles.statLabel}>Rejected</span>
-            <span style={styles.statValue}>{stats.counts.rejected}</span>
-          </div>
-          <div style={styles.statItem}>
-            <span style={styles.statLabel}>Next Date</span>
-            <span style={styles.statValue}>{formatDate(stats.nextAvailableDate)}</span>
+        <div className="glass-card p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            <div 
+              onClick={() => setFilter('pending')}
+              className={`flex flex-col items-center p-3 rounded-xl cursor-pointer transition-all ${filter === 'pending' ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-gray-50'}`}
+            >
+              <span className="text-xs text-gray-500 mb-1">Pending</span>
+              <span className="text-2xl font-bold text-gray-800">{stats.counts.pending}</span>
+            </div>
+            <div 
+              onClick={() => setFilter('approved')}
+              className={`flex flex-col items-center p-3 rounded-xl cursor-pointer transition-all ${filter === 'approved' ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-gray-50'}`}
+            >
+              <span className="text-xs text-gray-500 mb-1">Approved</span>
+              <span className="text-2xl font-bold text-gray-800">{stats.counts.approved}</span>
+            </div>
+            <div 
+              onClick={() => setFilter('scheduled')}
+              className={`flex flex-col items-center p-3 rounded-xl cursor-pointer transition-all ${filter === 'scheduled' ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-gray-50'}`}
+            >
+              <span className="text-xs text-gray-500 mb-1">Scheduled</span>
+              <span className="text-2xl font-bold text-gray-800">{stats.counts.scheduled}</span>
+            </div>
+            <div 
+              onClick={() => setFilter('published')}
+              className={`flex flex-col items-center p-3 rounded-xl cursor-pointer transition-all ${filter === 'published' ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-gray-50'}`}
+            >
+              <span className="text-xs text-gray-500 mb-1">Published</span>
+              <span className="text-2xl font-bold text-gray-800">{stats.counts.published}</span>
+            </div>
+            <div 
+              onClick={() => setFilter('rejected')}
+              className={`flex flex-col items-center p-3 rounded-xl cursor-pointer transition-all ${filter === 'rejected' ? 'bg-primary-50 ring-2 ring-primary-500' : 'hover:bg-gray-50'}`}
+            >
+              <span className="text-xs text-gray-500 mb-1">Rejected</span>
+              <span className="text-2xl font-bold text-gray-800">{stats.counts.rejected}</span>
+            </div>
+            <div className="flex flex-col items-center p-3 bg-gray-50 rounded-xl">
+              <span className="text-xs text-gray-500 mb-1">Next Date</span>
+              <span className="text-sm font-semibold text-gray-800">{formatDate(stats.nextAvailableDate)}</span>
+            </div>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <h2 style={styles.title}>📖 Verse Moderation</h2>
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Verse Moderation
+          </h2>
           <button 
             onClick={() => setShowActivity(!showActivity)} 
-            style={styles.activityToggle}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition"
           >
-            {showActivity ? '📋 Hide Activity' : '📋 Show Activity'}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            {showActivity ? 'Hide Activity' : 'Show Activity'}
           </button>
         </div>
-        <div style={styles.headerActions}>
+        <div className="flex gap-2">
           <select 
             value={filter} 
             onChange={(e) => setFilter(e.target.value)}
-            style={styles.filterSelect}
+            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
           >
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
@@ -452,13 +509,19 @@ function AdminVerseQueue() {
             <option value="rejected">Rejected</option>
           </select>
           {filter === 'approved' && submissions.length > 0 && (
-            <button onClick={handleBatchSchedule} style={styles.batchButton}>
-              📅 Schedule All
+            <button onClick={handleBatchSchedule} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Schedule All
             </button>
           )}
           {stats?.counts.scheduled > 0 && (
-            <button onClick={handlePublishTodayScheduled} style={styles.publishTodayButton}>
-              ✨ Publish Today's
+            <button onClick={handlePublishTodayScheduled} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Publish Today's
             </button>
           )}
         </div>
@@ -466,17 +529,22 @@ function AdminVerseQueue() {
 
       {/* Activity Panel */}
       {showActivity && (
-        <div style={styles.activityPanel}>
-          <h3 style={styles.activityTitle}>Recent Activity</h3>
-          <div style={styles.activityList}>
+        <div className="glass-card p-5 max-h-48 overflow-y-auto">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Recent Activity
+          </h3>
+          <div className="space-y-2">
             {activity.length === 0 ? (
-              <p style={styles.noActivity}>No recent activity</p>
+              <p className="text-gray-400 text-center py-2 text-sm">No recent activity</p>
             ) : (
               activity.map(item => (
-                <div key={item.id} style={styles.activityItem}>
-                  <span style={styles.activityAction}>{item.action}</span>
-                  <span style={styles.activityTime}>{formatDateTime(item.createdAt)}</span>
-                  {item.reason && <span style={styles.activityReason}>"{item.reason}"</span>}
+                <div key={item.id} className="text-sm py-2 border-b border-gray-100 last:border-0">
+                  <span className="font-semibold text-gray-700 mr-2">{item.action}</span>
+                  <span className="text-gray-400 text-xs mr-2">{formatDateTime(item.createdAt)}</span>
+                  {item.reason && <span className="text-gray-500 italic">"{item.reason}"</span>}
                 </div>
               ))
             )}
@@ -486,64 +554,68 @@ function AdminVerseQueue() {
 
       {/* Submissions Grid */}
       {submissions.length === 0 ? (
-        <div style={styles.emptyState}>
-          <p>No {filter} submissions found</p>
+        <div className="glass-card p-12 text-center">
+          <div className="text-5xl mb-4">📭</div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-2">No submissions found</h4>
+          <p className="text-gray-500">No {filter} submissions found</p>
         </div>
       ) : (
-        <div style={styles.grid}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {submissions.map(sub => {
             const badge = getStatusBadge(sub.status);
             return (
-              <div key={sub.id} style={styles.card}>
-                <div style={styles.cardHeader}>
-                  <span style={{...styles.statusBadge, backgroundColor: badge.color}}>
-                    {badge.text}
+              <div key={sub.id} className="glass-card p-5 hover:shadow-xl transition-all">
+                <div className="flex justify-between items-center mb-4">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${badge.bg} ${badge.text}`}>
+                    <span>{badge.icon}</span> {badge.label}
                   </span>
-                  <span style={styles.date}>
+                  <span className="text-xs text-gray-400">
                     {new Date(sub.createdAt).toLocaleDateString()}
                   </span>
                 </div>
 
-                <div style={styles.verseContent}>
-                  <h4 style={styles.reference}>{sub.verse?.reference}</h4>
-                  <p style={styles.verseText}>"{sub.verse?.text}"</p>
+                <div className="mb-4">
+                  <h4 className="text-md font-bold text-primary-600 mb-2">{sub.verse?.reference}</h4>
+                  <p className="text-gray-600 italic text-sm leading-relaxed">"{sub.verse?.text}"</p>
                 </div>
 
                 {sub.comment && (
-                  <div style={styles.comment}>
-                    <strong>User's reflection:</strong>
-                    <p>{sub.comment}</p>
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <strong className="text-xs text-gray-700">User's reflection:</strong>
+                    <p className="text-sm text-gray-600 mt-1">{sub.comment}</p>
                   </div>
                 )}
 
-                <div style={styles.userInfo}>
+                <div className="mb-4 text-sm text-gray-500 space-y-0.5">
                   <p><strong>Submitted by:</strong> {sub.user?.name}</p>
                   <p><strong>Email:</strong> {sub.user?.email}</p>
                 </div>
 
                 {sub.queuePosition && sub.status === 'pending' && (
-                  <div style={styles.queueInfo}>
+                  <div className="mb-4 p-2 bg-blue-50 rounded-lg text-sm">
                     <strong>Queue position:</strong> #{sub.queuePosition}
                   </div>
                 )}
 
                 {sub.scheduledFor && (
-                  <div style={styles.scheduledInfo}>
-                    📅 Scheduled for: {formatDate(sub.scheduledFor)}
+                  <div className="mb-4 p-2 bg-blue-50 rounded-lg text-sm flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Scheduled for: {formatDate(sub.scheduledFor)}</span>
                     {isToday(sub.scheduledFor) && (
-                      <span style={styles.todayTag}> Today!</span>
+                      <span className="ml-auto bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">Today!</span>
                     )}
                   </div>
                 )}
 
                 {sub.reviewNotes && (
-                  <div style={styles.reviewNotes}>
+                  <div className="mb-4 p-2 bg-yellow-50 rounded-lg text-sm">
                     <strong>Admin notes:</strong> {sub.reviewNotes}
                   </div>
                 )}
 
-                {/* Action buttons */}
-                <div style={styles.actions}>
+                <div className="flex flex-wrap gap-2 mt-4">
                   {getActionButton(sub)}
                 </div>
               </div>
@@ -554,74 +626,83 @@ function AdminVerseQueue() {
 
       {/* Action Modal */}
       {showModal && selectedSubmission && (
-        <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3>
-              {action === 'approve' && 'Approve Verse'}
-              {action === 'schedule' && 'Schedule Verse'}
-              {action === 'reject' && 'Reject Verse'}
-            </h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="glass-card max-w-lg w-full max-h-[90vh] overflow-auto animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white/80 backdrop-blur-sm flex justify-between items-center p-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800">
+                {action === 'approve' && 'Approve Verse'}
+                {action === 'schedule' && 'Schedule Verse'}
+                {action === 'reject' && 'Reject Verse'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             
-            <div style={styles.modalVerse}>
-              <strong>{selectedSubmission.verse?.reference}</strong>
-              <p>{selectedSubmission.verse?.text}</p>
-            </div>
-
-            {(action === 'approve' || action === 'schedule') && (
-              <div style={styles.formGroup}>
-                <label>Schedule for:</label>
-                <input
-                  type="date"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  style={styles.input}
-                  min={new Date().toISOString().split('T')[0]}
-                  required={action === 'schedule'}
-                />
-                <p style={styles.helpText}>
-                  {action === 'schedule' 
-                    ? 'Select a date to publish this verse'
-                    : 'Leave empty to approve without scheduling'}
-                </p>
+            <div className="p-5">
+              <div className="mb-4 p-4 bg-gray-50 rounded-xl">
+                <strong className="text-primary-600">{selectedSubmission.verse?.reference}</strong>
+                <p className="text-gray-600 mt-1">{selectedSubmission.verse?.text}</p>
               </div>
-            )}
 
-            <div style={styles.formGroup}>
-              <label>
-                {action === 'reject' ? 'Reason for rejection:' : 'Admin notes (optional):'}
-              </label>
-              <textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                style={styles.textarea}
-                rows="3"
-                placeholder={action === 'reject' 
-                  ? 'Explain why this verse was rejected...' 
-                  : 'Add any notes about this submission...'}
-              />
-            </div>
+              {(action === 'approve' || action === 'schedule') && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Schedule for:</label>
+                  <input
+                    type="date"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
+                    min={new Date().toISOString().split('T')[0]}
+                    required={action === 'schedule'}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {action === 'schedule' 
+                      ? 'Select a date to publish this verse'
+                      : 'Leave empty to approve without scheduling'}
+                  </p>
+                </div>
+              )}
 
-            <div style={styles.modalActions}>
-              <button onClick={() => setShowModal(false)} style={styles.cancelButton}>
-                Cancel
-              </button>
-              <button
-                onClick={
-                  action === 'approve' ? handleApprove :
-                  action === 'schedule' ? handleSchedule :
-                  handleReject
-                }
-                style={
-                  action === 'reject' 
-                    ? styles.confirmRejectButton 
-                    : styles.confirmApproveButton
-                }
-                disabled={action === 'schedule' && !scheduledDate}
-              >
-                {action === 'approve' && 'Approve'}
-                {action === 'schedule' && 'Schedule'}
-                {action === 'reject' && 'Reject'}
-              </button>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {action === 'reject' ? 'Reason for rejection:' : 'Admin notes (optional):'}
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
+                  rows="3"
+                  placeholder={action === 'reject' 
+                    ? 'Explain why this verse was rejected...' 
+                    : 'Add any notes about this submission...'}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                <button onClick={() => setShowModal(false)} className="px-5 py-2 text-gray-700 hover:bg-gray-100 rounded-full transition font-medium">
+                  Cancel
+                </button>
+                <button
+                  onClick={
+                    action === 'approve' ? handleApprove :
+                    action === 'schedule' ? handleSchedule :
+                    handleReject
+                  }
+                  className={`px-5 py-2 rounded-full transition font-medium text-white ${
+                    action === 'reject' 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-green-600 hover:bg-green-700'
+                  } ${action === 'schedule' && !scheduledDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={action === 'schedule' && !scheduledDate}
+                >
+                  {action === 'approve' && 'Approve'}
+                  {action === 'schedule' && 'Schedule'}
+                  {action === 'reject' && 'Reject'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -629,394 +710,5 @@ function AdminVerseQueue() {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    padding: '20px',
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  statsBar: {
-    display: 'flex',
-    gap: '15px',
-    marginBottom: '20px',
-    padding: '15px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '10px',
-    flexWrap: 'wrap',
-    cursor: 'pointer',
-  },
-  statItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    minWidth: '80px',
-    padding: '8px',
-    borderRadius: '8px',
-    transition: 'background-color 0.2s',
-    '&:hover': {
-      backgroundColor: '#e9ecef',
-    },
-  },
-  activeStat: {
-    backgroundColor: '#e9ecef',
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: '12px',
-    color: '#666',
-    marginBottom: '4px',
-  },
-  statValue: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '15px',
-  },
-  title: {
-    margin: 0,
-    color: '#333',
-  },
-  activityToggle: {
-    padding: '6px 12px',
-    backgroundColor: '#6c757d',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '13px',
-  },
-  headerActions: {
-    display: 'flex',
-    gap: '10px',
-  },
-  filterSelect: {
-    padding: '8px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    fontSize: '14px',
-  },
-  batchButton: {
-    padding: '8px 16px',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  publishTodayButton: {
-    padding: '8px 16px',
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  loading: {
-    textAlign: 'center',
-    padding: '50px',
-    color: '#666',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '50px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    color: '#999',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '20px',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '20px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '15px',
-  },
-  statusBadge: {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    color: 'white',
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  date: {
-    fontSize: '12px',
-    color: '#999',
-  },
-  verseContent: {
-    marginBottom: '15px',
-  },
-  reference: {
-    margin: '0 0 10px 0',
-    color: '#667eea',
-  },
-  verseText: {
-    color: '#666',
-    fontStyle: 'italic',
-    lineHeight: '1.6',
-    margin: 0,
-  },
-  comment: {
-    marginBottom: '15px',
-    padding: '10px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '5px',
-  },
-  userInfo: {
-    marginBottom: '15px',
-    fontSize: '13px',
-    color: '#666',
-  },
-  queueInfo: {
-    marginBottom: '15px',
-    padding: '8px',
-    backgroundColor: '#f0f4ff',
-    borderRadius: '5px',
-    fontSize: '13px',
-  },
-  scheduledInfo: {
-    marginBottom: '15px',
-    padding: '8px',
-    backgroundColor: '#e8f4fd',
-    borderRadius: '5px',
-    fontSize: '13px',
-  },
-  todayTag: {
-    backgroundColor: '#27ae60',
-    color: 'white',
-    padding: '2px 6px',
-    borderRadius: '3px',
-    marginLeft: '8px',
-    fontSize: '11px',
-  },
-  reviewNotes: {
-    marginBottom: '15px',
-    padding: '8px',
-    backgroundColor: '#fff3cd',
-    borderRadius: '5px',
-    fontSize: '13px',
-  },
-  actions: {
-    display: 'flex',
-    gap: '8px',
-    marginTop: '15px',
-    flexWrap: 'wrap',
-  },
-  approveButton: {
-    flex: 2,
-    padding: '8px',
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  rejectButton: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  scheduleButton: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  publishNowButton: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  rescheduleButton: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#f39c12',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  viewButton: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#95a5a6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  reinstateButton: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  rejectSmallButton: {
-    width: '32px',
-    padding: '8px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  activityPanel: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    padding: '15px',
-    marginBottom: '20px',
-    maxHeight: '200px',
-    overflowY: 'auto',
-  },
-  activityTitle: {
-    margin: '0 0 10px 0',
-    fontSize: '16px',
-    color: '#333',
-  },
-  activityList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  activityItem: {
-    fontSize: '13px',
-    padding: '5px 0',
-    borderBottom: '1px solid #e9ecef',
-  },
-  activityAction: {
-    fontWeight: 'bold',
-    color: '#495057',
-    marginRight: '10px',
-  },
-  activityTime: {
-    color: '#868e96',
-    marginRight: '10px',
-  },
-  activityReason: {
-    color: '#495057',
-    fontStyle: 'italic',
-  },
-  noActivity: {
-    color: '#adb5bd',
-    textAlign: 'center',
-    padding: '10px',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2000,
-  },
-  modal: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    maxWidth: '500px',
-    width: '90%',
-    maxHeight: '90vh',
-    overflow: 'auto',
-  },
-  modalVerse: {
-    margin: '20px 0',
-    padding: '15px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '5px',
-  },
-  formGroup: {
-    marginBottom: '15px',
-  },
-  input: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    marginTop: '5px',
-  },
-  textarea: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    marginTop: '5px',
-    fontFamily: 'inherit',
-  },
-  helpText: {
-    fontSize: '12px',
-    color: '#999',
-    marginTop: '4px',
-    marginBottom: 0,
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-    marginTop: '20px',
-  },
-  cancelButton: {
-    padding: '8px 16px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  confirmApproveButton: {
-    padding: '8px 16px',
-    backgroundColor: '#27ae60',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  confirmRejectButton: {
-    padding: '8px 16px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-};
 
 export default AdminVerseQueue;

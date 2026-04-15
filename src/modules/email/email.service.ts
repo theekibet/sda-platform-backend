@@ -95,9 +95,9 @@ export class EmailService implements OnModuleInit {
     this.logger.log(`🔗 Reset link: ${resetLink}`);
     
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM', '"SDA Youth Connect" <noreply@sdaconnect.com>'),
+      from: this.configService.get('EMAIL_FROM', '"Imani Hub" <noreply@imanihub.com>'),
       to,
-      subject: 'Reset Your Password - SDA Youth Connect',
+      subject: 'Reset Your Password - Imani Hub',
       html: this.getPasswordResetEmailTemplate(name, resetLink),
       text: this.getPasswordResetTextTemplate(name, resetLink),
     };
@@ -134,7 +134,6 @@ export class EmailService implements OnModuleInit {
     }
   }
 
-  // ✅ Add this missing method
   async sendNotificationEmail(to: string, name: string, title: string, message: string, link?: string): Promise<{ success: boolean; previewUrl?: string; message: string }> {
     if (!this.isConfigured) {
       return {
@@ -144,7 +143,7 @@ export class EmailService implements OnModuleInit {
     }
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM', '"SDA Youth Connect" <noreply@sdaconnect.com>'),
+      from: this.configService.get('EMAIL_FROM', '"Imani Hub" <noreply@imanihub.com>'),
       to,
       subject: title,
       html: this.getNotificationEmailTemplate(name, title, message, link),
@@ -179,6 +178,61 @@ export class EmailService implements OnModuleInit {
       };
     }
   }
+
+  // ============ NEW EMAIL VERIFICATION METHOD ============
+  async sendEmailVerificationEmail(to: string, token: string, name: string): Promise<{ success: boolean; previewUrl?: string; message: string }> {
+    if (!this.isConfigured) {
+      this.logger.warn(`Email verification not sent to ${to} - email service not configured`);
+      return {
+        success: false,
+        message: 'Email service not configured',
+      };
+    }
+
+    const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:5173');
+    const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+    
+    this.logger.log(`📧 Sending email verification to: ${to}`);
+    this.logger.log(`🔗 Verification link: ${verificationLink}`);
+    
+    const mailOptions = {
+      from: this.configService.get('EMAIL_FROM', '"Imani Hub" <noreply@imanihub.com>'),
+      to,
+      subject: 'Verify Your Email Address - Imani Hub',
+      html: this.getEmailVerificationTemplate(name, verificationLink),
+      text: this.getEmailVerificationTextTemplate(name, verificationLink),
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Email verification sent! Message ID: ${info.messageId}`);
+      
+      let previewUrl: string | undefined;
+      const isEthereal = this.smtpHost.includes('ethereal.email');
+      
+      if (isEthereal) {
+        const testUrl = nodemailer.getTestMessageUrl(info);
+        previewUrl = testUrl || undefined;
+        if (previewUrl) {
+          this.logger.log(`📧 EMAIL PREVIEW URL: ${previewUrl}`);
+        }
+      }
+      
+      return {
+        success: true,
+        previewUrl,
+        message: 'Verification email sent',
+      };
+    } catch (error) {
+      this.logger.error(`❌ Failed to send verification email: ${error.message}`);
+      return {
+        success: false,
+        message: 'Failed to send verification email',
+      };
+    }
+  }
+
+  // ============ TEMPLATES ============
 
   private getPasswordResetEmailTemplate(name: string, resetLink: string): string {
     return `
@@ -250,12 +304,12 @@ export class EmailService implements OnModuleInit {
       <body>
         <div class="container">
           <div class="header">
-            <h1>SDA Youth Connect</h1>
+            <h1>Imani Hub</h1>
             <p>Password Reset Request</p>
           </div>
           <div class="content">
             <h2>Hello ${name},</h2>
-            <p>We received a request to reset your password for your SDA Youth Connect account.</p>
+            <p>We received a request to reset your password for your Imani Hub account.</p>
             <p>Click the button below to create a new password:</p>
             <div style="text-align: center;">
               <a href="${resetLink}" class="button">Reset Password</a>
@@ -268,7 +322,7 @@ export class EmailService implements OnModuleInit {
             <p style="word-break: break-all; font-size: 12px; color: #666;">${resetLink}</p>
           </div>
           <div class="footer">
-            <p>SDA Youth Connect - Connecting Young Adventists Worldwide</p>
+            <p>Imani Hub - Connecting Believers in Faith</p>
             <p>&copy; ${new Date().getFullYear()} All rights reserved.</p>
           </div>
         </div>
@@ -281,7 +335,7 @@ export class EmailService implements OnModuleInit {
     return `
 Hello ${name},
 
-We received a request to reset your password for your SDA Youth Connect account.
+We received a request to reset your password for your Imani Hub account.
 
 Click the link below to create a new password:
 ${resetLink}
@@ -290,7 +344,7 @@ This link will expire in 1 hour.
 
 If you didn't request this password reset, you can safely ignore this email. Your password will not be changed.
 
-SDA Youth Connect Team
+Imani Hub Team
     `;
   }
 
@@ -356,7 +410,7 @@ SDA Youth Connect Team
       <body>
         <div class="container">
           <div class="header">
-            <h1>SDA Youth Connect</h1>
+            <h1>Imani Hub</h1>
           </div>
           <div class="content">
             <h2>Hello ${name},</h2>
@@ -364,7 +418,7 @@ SDA Youth Connect Team
             ${buttonHtml}
           </div>
           <div class="footer">
-            <p>SDA Youth Connect - Connecting Young Adventists Worldwide</p>
+            <p>Imani Hub - Connecting Believers in Faith</p>
           </div>
         </div>
       </body>
@@ -380,7 +434,104 @@ ${message}
 
 ${link ? `View details: ${link}` : ''}
 
-SDA Youth Connect Team
+Imani Hub Team
+    `;
+  }
+
+  // ============ EMAIL VERIFICATION TEMPLATES ============
+
+  private getEmailVerificationTemplate(name: string, verificationLink: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verify Your Email</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+          }
+          .content {
+            padding: 40px 30px;
+          }
+          .button {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 600;
+          }
+          .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Imani Hub</h1>
+            <p>Welcome to the Community!</p>
+          </div>
+          <div class="content">
+            <h2>Hello ${name},</h2>
+            <p>Thank you for joining Imani Hub! Please verify your email address to get started.</p>
+            <p>Click the button below to verify your email:</p>
+            <div style="text-align: center;">
+              <a href="${verificationLink}" class="button">Verify Email Address</a>
+            </div>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; font-size: 12px; color: #666;">${verificationLink}</p>
+            <p><strong>⚠️ This link will expire in 24 hours.</strong></p>
+          </div>
+          <div class="footer">
+            <p>Imani Hub - Connecting Believers in Faith</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private getEmailVerificationTextTemplate(name: string, verificationLink: string): string {
+    return `
+Hello ${name},
+
+Thank you for joining Imani Hub! Please verify your email address by clicking the link below:
+
+${verificationLink}
+
+This link will expire in 24 hours.
+
+If you did not create an account with Imani Hub, please ignore this email.
+
+Imani Hub Team
     `;
   }
 }

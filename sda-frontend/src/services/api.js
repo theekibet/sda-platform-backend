@@ -1,3 +1,4 @@
+// src/services/api.js
 import axios from 'axios';
 
 const API = axios.create({
@@ -13,9 +14,7 @@ API.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor - handle 401 errors globally
@@ -44,6 +43,10 @@ export const updateProfile = (data) => API.patch('/members/profile/me', data);
 export const changePassword = (currentPassword, newPassword) => 
   API.post('/members/profile/change-password', { currentPassword, newPassword });
 
+// ============ USERNAME ENDPOINTS ============
+export const getUsernameStatus = () => API.get('/members/profile/username/status');
+export const updateUsername = (username) => API.put('/members/profile/username', { username });
+
 // ============ PROFILE PICTURE ENDPOINTS ============
 export const uploadProfilePicture = (file) => {
   const formData = new FormData();
@@ -54,13 +57,10 @@ export const uploadProfilePicture = (file) => {
 };
 export const removeProfilePicture = () => API.delete('/members/profile/picture');
 
-// ============ SIMPLIFIED LOCATION ENDPOINTS ============
-// Update user location (auto-detect only, no privacy settings)
+// ============ LOCATION ENDPOINTS ============
 export const updateLocation = (data) => API.post('/location/update', data);
-// Get location statistics (admin only)
 export const getLocationStats = () => API.get('/location/stats');
-// DEPRECATED: Returns empty array (frontend no longer uses privacy options)
-export const getPrivacyOptions = () => API.get('/location/privacy-options');
+export const getPrivacyOptions = () => API.get('/location/privacy-options'); // DEPRECATED
 
 // ============ PRAYER ENDPOINTS ============
 export const getPrayerRequests = (city, page = 1) => {
@@ -73,33 +73,19 @@ export const getTrendingPrayers = () => API.get('/prayer/requests/trending');
 export const getPrayerRequest = (id) => API.get(`/prayer/requests/${id}`);
 export const createPrayerRequest = (data) => API.post('/prayer/requests', data);
 export const prayForRequest = (id) => API.post(`/prayer/requests/${id}/pray`);
-
-// Get current user's own prayer requests (for linking testimonies)
 export const getMyPrayerRequests = () => API.get('/prayer/requests/my');
-
-// Update a prayer request (author only)
 export const updatePrayerRequest = (id, data) => API.put(`/prayer/requests/${id}`, data);
-
-// Delete a prayer request (author only)
 export const deletePrayerRequest = (id) => API.delete(`/prayer/requests/${id}`);
 
 // ============ TESTIMONY ENDPOINTS ============
 export const getTestimonies = (page = 1) => API.get(`/prayer/testimonies?page=${page}`);
 export const createTestimony = (data) => API.post('/prayer/testimonies', data);
 export const encourageTestimony = (id) => API.post(`/prayer/testimonies/${id}/encourage`);
-
-// Get current user's own testimonies
 export const getMyTestimonies = () => API.get('/prayer/testimonies/my');
-
-// Update a testimony (author only)
 export const updateTestimony = (id, data) => API.put(`/prayer/testimonies/${id}`, data);
-
-// Delete a testimony (author only)
 export const deleteTestimony = (id) => API.delete(`/prayer/testimonies/${id}`);
 
 // ============ GROUPS ENDPOINTS ============
-// Note: For group operations, use groupsService.js which contains all the new message endpoints
-// These basic group endpoints are kept for backward compatibility
 export const getGroups = (params = {}) => {
   const queryParams = new URLSearchParams();
   if (params.category) queryParams.append('category', params.category);
@@ -139,9 +125,7 @@ export const getDashboardStats = () => API.get('/admin/dashboard');
 // ============ ADMIN USER MANAGEMENT ============
 export const getUsers = (params = {}) => {
   const queryParams = new URLSearchParams();
-  // Only add parameters that have values
   if (params.search) queryParams.append('search', params.search);
-  // ✅ CHANGED: isAdmin → isModerator
   if (params.isModerator !== undefined) queryParams.append('isModerator', params.isModerator);
   if (params.isSuspended !== undefined) queryParams.append('isSuspended', params.isSuspended);
   if (params.page) queryParams.append('page', params.page);
@@ -149,16 +133,13 @@ export const getUsers = (params = {}) => {
   if (params.sortBy) queryParams.append('sortBy', params.sortBy);
   if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
   const url = `/admin/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  console.log('Fetching users with URL:', url);
   return API.get(url);
 };
 export const getUserDetails = (userId) => API.get(`/admin/users/${userId}`);
 export const suspendUser = (userId, data) => API.post(`/admin/users/${userId}/suspend`, data);
-// ✅ CHANGED: toggleAdmin → toggleModerator, endpoint updated
 export const toggleModerator = (userId) => API.post(`/admin/users/${userId}/toggle-moderator`);
 export const adminResetPassword = (data) => API.post('/admin/users/reset-password', data);
 export const deleteUser = (userId) => API.delete(`/admin/users/${userId}`);
-// ✅ CHANGED: bulk action strings should be 'makeModerator'/'removeModerator' (backend expects those)
 export const bulkUserAction = (action, userIds, data) => 
   API.post('/admin/users/bulk', { action, userIds, data });
 
@@ -188,8 +169,7 @@ export const getContentModerationQueue = (params = {}) => {
   if (params.page) queryParams.append('page', params.page);
   if (params.limit) queryParams.append('limit', params.limit);
   if (params.search) queryParams.append('search', params.search);
-  const url = `/admin/moderation/queue${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  return API.get(url);
+  return API.get(`/admin/moderation/queue?${queryParams.toString()}`);
 };
 export const getContentForReview = (contentType, contentId) => 
   API.get(`/admin/moderation/content/${contentType}/${contentId}`);
@@ -206,14 +186,7 @@ export const getModerationLogs = (params = {}) => {
 };
 
 // ============ ADMIN ANALYTICS ============
-export const getAnalytics = (startDate, endDate, metrics = []) => {
-  const params = new URLSearchParams();
-  params.append('startDate', startDate);
-  params.append('endDate', endDate);
-  if (metrics.length) params.append('metrics', metrics.join(','));
-  return API.get(`/admin/analytics?${params.toString()}`);
-};
-export const getUserGrowth = (startDate, endDate, period = 'monthly') => {
+export const getUserGrowth = (startDate, endDate, period = 'daily') => {
   const params = new URLSearchParams();
   params.append('startDate', startDate);
   params.append('endDate', endDate);
@@ -239,7 +212,7 @@ export const getAnnouncements = (params = {}) => {
   if (params.active) queryParams.append('active', params.active);
   return API.get(`/admin/announcements?${queryParams.toString()}`);
 };
-export const getActiveAnnouncements = () => API.get('/announcements/active'); 
+export const getActiveAnnouncements = () => API.get('/announcements/active');
 export const getAnnouncementById = (id) => API.get(`/admin/announcements/${id}`);
 export const updateAnnouncement = (id, data) => API.put(`/admin/announcements/${id}`, data);
 export const deleteAnnouncement = (id) => API.delete(`/admin/announcements/${id}`);
@@ -283,7 +256,7 @@ export const getLoginAttempts = (days = 7, params = {}) => {
   return API.get(`/admin/security/login-attempts?${queryParams.toString()}`);
 };
 export const getFailedLoginAttempts = (days = 7) => 
-  API.get(`/admin/security/login-attempts/failed?days=${days}`);
+  API.get(`/admin/security/login-attempts/failed/grouped?days=${days}`);
 
 // ============ ADMIN MAINTENANCE ============
 export const getSystemHealth = () => API.get('/admin/maintenance/health');
@@ -304,7 +277,6 @@ export const moderatePost = (postId, action, reason) =>
 export const warnUser = (userId, reason) => 
   API.post(`/moderator/users/${userId}/warn`, { reason });
 export const getModeratorStats = () => API.get('/moderator/stats');
-
 // ============ ANALYTICS EXPORT ============
 export const exportAnalytics = (type, dateRange, format = 'csv') => {
   const params = new URLSearchParams();
@@ -314,6 +286,8 @@ export const exportAnalytics = (type, dateRange, format = 'csv') => {
   params.append('format', format);
   return API.get(`/admin/analytics/export?${params.toString()}`, { responseType: 'blob' });
 };
+
+export const getAuthAnalytics = () => API.get('/admin/analytics/auth');
 
 // ============ COMMUNITY POSTS ENDPOINTS ============
 export const getCommunityPosts = (params = {}) => {
@@ -341,16 +315,37 @@ export const getTrendingCommunityPosts = (timeframe = 'week', limit = 10) =>
   API.get(`/community/posts/trending?timeframe=${timeframe}&limit=${limit}`);
 export const getPostAnalytics = (postId) => API.get(`/community/posts/${postId}/analytics`);
 
-// ============ COMMUNITY REPORTS ENDPOINTS ============
+// ============ COMMUNITY REPORTS ============
 export const reportCommunityPost = (postId, data) => API.post(`/community/reports/${postId}`, data);
 
-// ============ BOOKMARKS ENDPOINTS ============
+// ============ BOOKMARKS ============
 export const getBookmarkStatus = (postId) => API.get(`/community/posts/${postId}/bookmark-status`);
 export const addBookmark = (postId) => API.post(`/community/posts/${postId}/bookmark`);
 export const removeBookmark = (postId) => API.delete(`/community/posts/${postId}/bookmark`);
 export const getBookmarks = () => API.get('/community/bookmarks');
 
-// ============ RATE LIMIT ENDPOINTS ============
+// ============ MY CONTENT METHODS ============
+export const getMyPosts = () => API.get('/community/posts/my');
+export const getMyVerseSubmissions = () => API.get('/bible/verses/my');
+export const getMyComments = () => API.get('/discussions/comments/my');
+export const deleteMyContent = (type, id) => {
+  switch (type) {
+    case 'posts':
+      return API.delete(`/community/posts/${id}`);
+    case 'prayers':
+      return API.delete(`/prayer/requests/${id}`);
+    case 'testimonies':
+      return API.delete(`/prayer/testimonies/${id}`);
+    case 'verses':
+      return API.delete(`/bible/verses/${id}`);
+    case 'comments':
+      return API.delete(`/discussions/comments/${id}`);
+    default:
+      throw new Error('Unknown content type');
+  }
+};
+
+// ============ RATE LIMIT ============
 export const checkRateLimit = (action) => API.get(`/rate-limit/check/${action}`);
 export const getRateLimitStatus = () => API.get('/rate-limit/status');
 

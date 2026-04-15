@@ -382,6 +382,15 @@ export class AdminController {
     return this.adminService.getLoginAttempts(days, page, limit);
   }
 
+  // ============ ADDED: GROUPED FAILED LOGIN ATTEMPTS ENDPOINT ============
+  @Get('security/login-attempts/failed/grouped')
+  @UseGuards(JwtAuthGuard, ModeratorGuard)
+  getFailedLoginAttempts(
+    @Query('days', new DefaultValuePipe(7), ParseIntPipe) days?: number,
+  ) {
+    return this.adminService.getFailedLoginAttempts(days);
+  }
+
   // ============ PHASE 8 - MAINTENANCE ENDPOINTS ============
 
   // ✅ SUPER ADMIN ONLY: backup/restore are critical system operations

@@ -9,7 +9,7 @@ import { PrismaService } from '../../prisma.service';
 import { JwtStrategy } from './jwt.strategy';
 import { EmailModule } from '../email/email.module';
 import { PasswordResetService } from './password-reset.service';
-
+import { GoogleStrategy } from './google.strategy';
 @Module({
   imports: [
     PassportModule,
@@ -42,7 +42,8 @@ import { PasswordResetService } from './password-reset.service';
     AuthService, 
     PrismaService, 
     JwtStrategy,
-    PasswordResetService, // ✅ Added PasswordResetService to providers
+    PasswordResetService,
+    GoogleStrategy, 
   ],  
   exports: [AuthService],  
 })

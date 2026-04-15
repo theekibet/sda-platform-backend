@@ -7,7 +7,7 @@ import FactOfTheDay from '../../components/common/FactOfTheDay';
 import { communityService } from '../../services/communityService';
 
 /* ══════════════════════════════════════════════════════════
-   Greeting Component (enhanced with weather & events, now shows user ID)
+   Greeting Component (enhanced with weather & events)
 ══════════════════════════════════════════════════════════ */
 const Greeting = () => {
   const { user } = useAuth();
@@ -19,7 +19,7 @@ const Greeting = () => {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
-  // Weather fetch (enhanced)
+  // Weather fetch
   useEffect(() => {
     if (!navigator.geolocation) return;
     setLoadingWeather(true);
@@ -108,7 +108,7 @@ const Greeting = () => {
     return [
       { name: 'World Pathfinder Day', date: pathfinderDay, icon: '⛺' },
       { name: 'Adventist Youth Day', date: youthDay, icon: '👥' },
-      { name: 'Women’s Ministries Day', date: womensDay, icon: '🌹' },
+      { name: "Women's Ministries Day", date: womensDay, icon: '🌹' },
     ].filter(e => e.date >= new Date());
   };
 
@@ -212,30 +212,28 @@ const Greeting = () => {
 
   const dayMessage = getDayMessage();
   const formatDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const glassPanel = 'bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-3';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4 mb-8 p-5 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl text-white shadow-glow">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4 mb-8">
       {/* Greeting */}
-      <div className="flex items-center gap-4 min-w-0">
-        <span className="text-5xl leading-none shrink-0">{holiday?.icon || icon}</span>
-        <div className="min-w-0">
+      <div className="glass-card p-5 flex items-center gap-4">
+        <span className="text-5xl leading-none">{holiday?.icon || icon}</span>
+        <div>
           <div className="flex items-center gap-3 flex-wrap mb-1">
-            <h2 className="text-2xl font-bold font-display tracking-tight leading-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
               {holiday ? holiday.message : `${greeting}, ${user?.name?.split(' ')[0] || 'Friend'}!`}
             </h2>
-            <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+            <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full text-xs font-medium">
               {dayMessage.emoji} {dayMessage.text}
             </span>
           </div>
-          <p className="text-sm opacity-90">
+          <p className="text-sm text-gray-500">
             {new Date().toLocaleDateString('en-US', {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
             })}
           </p>
-          {/* ✅ User ID displayed here */}
           {user?.id && (
-            <p className="text-xs opacity-70 mt-1 font-mono">
+            <p className="text-xs text-gray-400 mt-1 font-mono">
               ID: {user.id}
             </p>
           )}
@@ -243,63 +241,70 @@ const Greeting = () => {
       </div>
 
       {/* Weather */}
-      <div className={`${glassPanel} flex items-center justify-center min-w-[130px]`}>
+      <div className="glass-card p-4 flex items-center justify-center min-w-[150px]">
         {loadingWeather ? (
-          <div className="flex items-center gap-2 text-sm opacity-80">
-            <span>⏳</span><span>Loading…</span>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Loading...</span>
           </div>
         ) : weather ? (
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">{weather.icon}</span>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold leading-tight">{weather.temp}°C</span>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-3xl">{weather.icon}</span>
+              <div>
+                <span className="text-2xl font-bold text-gray-800">{weather.temp}°C</span>
                 {weather.feelsLike && (
-                  <span className="text-xs opacity-80">Feels like {weather.feelsLike}°</span>
+                  <div className="text-xs text-gray-500">Feels like {weather.feelsLike}°</div>
                 )}
               </div>
             </div>
             {weather.precipProb !== null && weather.precipProb > 0 && (
-              <div className="text-xs opacity-70 mt-1">☔ {weather.precipProb}% rain</div>
+              <div className="text-xs text-gray-500 mt-1">☔ {weather.precipProb}% rain</div>
             )}
             {weather.forecast && (
-              <div className="text-xs opacity-80 mt-1">
+              <div className="text-xs text-gray-500 mt-1">
                 H:{weather.forecast.max}° L:{weather.forecast.min}°
               </div>
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-sm opacity-70">
-            <span>⛅</span><span>Weather unavailable</span>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>⛅</span>
+            <span>Weather unavailable</span>
           </div>
         )}
       </div>
 
       {/* Upcoming events */}
-      <div className={`${glassPanel} min-w-[220px]`}>
-        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/20">
-          <span className="text-lg">📅</span>
-          <span className="text-xs font-semibold uppercase tracking-wider opacity-90">Upcoming</span>
+      <div className="glass-card p-4 min-w-[200px]">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Upcoming</span>
         </div>
         {loadingEvents ? (
-          <div className="text-xs opacity-70 text-center py-2">Loading events…</div>
+          <div className="text-xs text-gray-400 text-center py-4">Loading events...</div>
         ) : upcomingEvents.length > 0 ? (
-          <div className="flex flex-col gap-2">
+          <div className="space-y-2">
             {upcomingEvents.map((ev, i) => (
-              <div key={i} className="grid grid-cols-[20px_1fr_auto] items-center gap-2 text-xs py-0.5">
-                <span className="text-base">{ev.icon}</span>
-                <div className="flex flex-col">
-                  <span className="font-medium">{ev.name}</span>
-                  <span className="opacity-70">{formatDate(ev.date)}</span>
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <span className="text-lg">{ev.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-800 truncate">{ev.name}</div>
+                  <div className="text-xs text-gray-400">{formatDate(ev.date)}</div>
                 </div>
-                <span className="bg-white/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
                   {ev.daysUntil === 0 ? 'Today!' : ev.daysUntil === 1 ? 'Tomorrow' : `${ev.daysUntil}d`}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-xs opacity-70 text-center py-2">No upcoming events</div>
+          <div className="text-xs text-gray-400 text-center py-4">No upcoming events</div>
         )}
       </div>
     </div>
@@ -322,7 +327,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-8">
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
       {/* Greeting Card */}
       <Greeting />
 
@@ -332,41 +337,28 @@ const Dashboard = () => {
       {/* Verse of the Day */}
       <VerseOfTheDay />
 
-      {/* Quick Actions */}
-      <section>
-        <h3 className="text-lg font-bold font-display text-gray-800 mb-4">⚡ Quick Actions</h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {actions.map(({ icon, label, href }) => (
-            <button
-              key={label}
-              onClick={() => (window.location.href = href)}
-              className="glass-card p-5 flex flex-col items-center gap-3 hover:shadow-glow hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
-            >
-              <span className="text-4xl leading-none group-hover:scale-110 transition-transform duration-200">
-                {icon}
-              </span>
-              <span className="text-sm font-semibold text-gray-700 group-hover:text-primary-600 transition-colors">
-                {label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
+
 
       {/* Trending Posts */}
       <section>
-        <h3 className="text-lg font-bold font-display text-gray-800 mb-4">
-          🔥 Trending in Community
-        </h3>
-        <TrendingPosts limit={3} onPostClick={handlePostClick} />
-        <div className="flex justify-end mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            Trending in Community
+          </h3>
           <button
             onClick={() => (window.location.href = '/community')}
-            className="py-2 px-5 text-sm font-semibold rounded-xl border border-primary-300 text-primary-600 hover:bg-primary-50 hover:border-primary-400 transition-all duration-200"
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
           >
-            View All Community Posts →
+            View All
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         </div>
+        <TrendingPosts limit={3} onPostClick={handlePostClick} />
       </section>
     </div>
   );

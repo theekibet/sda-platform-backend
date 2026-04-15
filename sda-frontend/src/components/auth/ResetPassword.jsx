@@ -23,7 +23,6 @@ function ResetPassword() {
       return;
     }
 
-    // Validate token
     const validateToken = async () => {
       try {
         const response = await api.get('/auth/validate-reset-token', {
@@ -68,20 +67,24 @@ function ResetPassword() {
   if (validToken === false) {
     return (
       <AuthLayout title="Invalid Reset Link" subtitle="This link may have expired">
-        <div style={styles.errorContainer}>
-          <div style={styles.errorIcon}>🔒</div>
-          <p style={styles.errorText}>
+        <div className="text-center py-4">
+          <div className="text-5xl mb-4 flex justify-center">
+            <svg className="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-red-600 mb-6">
             This password reset link is invalid or has already been used.
           </p>
           <button
             onClick={() => navigate('/forgot-password')}
-            style={styles.button}
+            className="w-full py-2.5 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition shadow-sm hover:shadow-md"
           >
             Request New Reset Link
           </button>
           <button
             onClick={() => navigate('/login')}
-            style={styles.linkButton}
+            className="w-full mt-3 py-2.5 text-primary-600 font-medium hover:bg-primary-50 rounded-full transition"
           >
             Back to Login
           </button>
@@ -94,8 +97,8 @@ function ResetPassword() {
   if (validToken === null) {
     return (
       <AuthLayout title="Validating" subtitle="Please wait...">
-        <div style={styles.loadingContainer}>
-          <div style={styles.loaderLarge}></div>
+        <div className="text-center py-8">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin mx-auto"></div>
         </div>
       </AuthLayout>
     );
@@ -105,14 +108,18 @@ function ResetPassword() {
   if (success) {
     return (
       <AuthLayout title="Password Reset!" subtitle="Your password has been updated">
-        <div style={styles.successContainer}>
-          <div style={styles.successIcon}>✅</div>
-          <p style={styles.successMessage}>
+        <div className="text-center py-4">
+          <div className="text-5xl mb-4 flex justify-center">
+            <svg className="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-green-600 mb-6">
             Your password has been successfully reset.
           </p>
           <button
             onClick={() => navigate('/login')}
-            style={styles.button}
+            className="w-full py-2.5 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition shadow-sm hover:shadow-md"
           >
             Login Now
           </button>
@@ -123,59 +130,78 @@ function ResetPassword() {
 
   return (
     <AuthLayout title="Create New Password" subtitle="Enter your new password below">
-      <form onSubmit={handleSubmit} style={styles.form}>
+      <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <div style={styles.errorMessage}>
-            ❌ {error}
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
           </div>
         )}
         
-        <div style={styles.formGroup}>
-          <label style={styles.label}>New Password</label>
-          <div style={styles.passwordContainer}>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            New Password
+          </label>
+          <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter new password"
               required
-              style={styles.passwordInput}
+              className="w-full px-4 py-2.5 pr-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={styles.eyeButton}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition rounded-full hover:bg-gray-100"
             >
-              {showPassword ? '👁️' : '👁️‍🗨️'}
+              {showPassword ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
             </button>
           </div>
-          <div style={styles.passwordHint}>
+          <p className="text-xs text-gray-400 mt-1">
             Password must be at least 8 characters long
-          </div>
+          </p>
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Confirm Password</label>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Confirm Password
+          </label>
           <input
             type={showPassword ? 'text' : 'password'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm new password"
             required
-            style={styles.input}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
           />
         </div>
 
         <button 
           type="submit" 
           disabled={loading}
-          style={styles.button}
+          className="w-full py-2.5 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
         >
           {loading ? (
-            <div style={styles.loaderContainer}>
-              <div style={styles.loader}></div>
-              <span>Resetting...</span>
-            </div>
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Resetting...
+            </span>
           ) : (
             'Reset Password'
           )}
@@ -184,153 +210,5 @@ function ResetPassword() {
     </AuthLayout>
   );
 }
-
-const styles = {
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  formGroup: {
-    marginBottom: '20px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
-    color: '#555',
-    fontWeight: '500',
-    fontSize: '14px',
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    boxSizing: 'border-box',
-  },
-  passwordContainer: {
-    position: 'relative',
-    width: '100%',
-  },
-  passwordInput: {
-    width: '100%',
-    padding: '12px',
-    paddingRight: '45px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    boxSizing: 'border-box',
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: '12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '20px',
-  },
-  passwordHint: {
-    fontSize: '12px',
-    color: '#666',
-    marginTop: '5px',
-  },
-  button: {
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    padding: '12px',
-    borderRadius: '8px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#5a6fd8',
-    },
-  },
-  loaderContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-  },
-  loader: {
-    width: '20px',
-    height: '20px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid white',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  loaderLarge: {
-    width: '40px',
-    height: '40px',
-    border: '3px solid #f3f3f3',
-    borderTop: '3px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    margin: '40px auto',
-  },
-  errorContainer: {
-    textAlign: 'center',
-    padding: '20px',
-  },
-  errorIcon: {
-    fontSize: '48px',
-    marginBottom: '20px',
-  },
-  errorText: {
-    fontSize: '16px',
-    color: '#c33',
-    marginBottom: '25px',
-  },
-  successContainer: {
-    textAlign: 'center',
-    padding: '20px',
-  },
-  successIcon: {
-    fontSize: '48px',
-    marginBottom: '20px',
-  },
-  successMessage: {
-    fontSize: '16px',
-    color: '#28a745',
-    marginBottom: '25px',
-  },
-  errorMessage: {
-    backgroundColor: '#fee',
-    color: '#c33',
-    padding: '12px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    textAlign: 'center',
-    fontSize: '14px',
-  },
-  linkButton: {
-    background: 'none',
-    border: 'none',
-    color: '#667eea',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-    fontSize: '14px',
-    marginTop: '15px',
-  },
-  loadingContainer: {
-    textAlign: 'center',
-    padding: '40px',
-  },
-};
-
-// Add keyframe animation
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default ResetPassword;

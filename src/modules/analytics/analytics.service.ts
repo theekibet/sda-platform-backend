@@ -1,3 +1,4 @@
+// src/modules/analytics/analytics.service.ts
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { DateRangeDto } from './dto/date-range.dto';
@@ -74,7 +75,7 @@ export class AnalyticsService {
       },
     });
 
-    // ============ FIXED: Location distribution using locationName ============
+    // Location distribution using locationName
     const topLocations = await this.prisma.member.groupBy({
       by: ['locationName'],
       _count: true,
@@ -83,13 +84,12 @@ export class AnalyticsService {
       },
       orderBy: {
         _count: {
-          locationName: 'desc', // Fixed: changed from 'city' to 'locationName'
+          locationName: 'desc',
         },
       },
       take: 10,
     });
 
-    // Fix: Add proper typing for accumulator
     const genderMap: Record<string, number> = {};
     genderDistribution.forEach(curr => {
       genderMap[curr.gender || 'unspecified'] = curr._count;
@@ -98,9 +98,8 @@ export class AnalyticsService {
     return {
       ageGroups,
       gender: genderMap,
-      // ============ FIXED: Map locationName to city for backward compatibility ============
       topCities: topLocations.map(l => ({
-        city: l.locationName?.split(',')[0] || 'Unknown', // Extract city name
+        city: l.locationName?.split(',')[0] || 'Unknown',
         count: l._count,
       })),
     };
@@ -175,6 +174,67 @@ export class AnalyticsService {
       dailyActive,
       retention,
       avgSessionDuration,
+    };
+  }
+
+  // ============ AUTHENTICATION ANALYTICS (NEW) ============
+
+  async getAuthAnalytics() {
+    // Total users by auth provider
+    const authProviderStats = await this.prisma.member.groupBy({
+      by: ['authProvider'],
+      _count: true,
+    });
+
+    // Last 30 days logins by method
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const lastLoginMethodStats = await this.prisma.member.groupBy({
+      by: ['lastLoginMethod'],
+      where: {
+        lastLoginAt: { gte: thirtyDaysAgo },
+      },
+      _count: true,
+    });
+
+    // Recent logins (last 10)
+    const recentLogins = await this.prisma.member.findMany({
+      where: { lastLoginAt: { not: null } },
+      select: {
+        name: true,
+        email: true,
+        lastLoginAt: true,
+        lastLoginMethod: true,
+        authProvider: true,
+      },
+      orderBy: { lastLoginAt: 'desc' },
+      take: 10,
+    });
+
+    // Users who never logged in (registered but never logged in)
+    const neverLoggedIn = await this.prisma.member.count({
+      where: { lastLoginAt: null },
+    });
+
+    // Auth provider distribution percentages
+    const totalUsers = await this.prisma.member.count();
+    const providerDistribution = authProviderStats.map(stat => ({
+      provider: stat.authProvider,
+      count: stat._count,
+      percentage: totalUsers ? (stat._count / totalUsers) * 100 : 0,
+    }));
+
+    return {
+      summary: {
+        totalUsers,
+        neverLoggedIn,
+        emailUsers: authProviderStats.find(s => s.authProvider === 'email')?._count || 0,
+        googleUsers: authProviderStats.find(s => s.authProvider === 'google')?._count || 0,
+      },
+      providerDistribution,
+      recentLogins,
+      last30DaysLogins: lastLoginMethodStats,
     };
   }
 

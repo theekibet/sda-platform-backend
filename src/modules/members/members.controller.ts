@@ -1,8 +1,20 @@
 // src/modules/members/members.controller.ts
-import { 
-  Controller, Get, Post, Body, Param, Patch, Delete, UseGuards,
-  UnauthorizedException, UseInterceptors, UploadedFile, 
-  BadRequestException, HttpCode, HttpStatus
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  UseGuards,
+  UnauthorizedException,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MembersService } from './members.service';
@@ -10,6 +22,7 @@ import { FileUploadService } from './file-upload.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { SetUsernameDto } from './dto/username.dto';
 
 @Controller('members')
 @UseGuards(JwtAuthGuard)
@@ -20,7 +33,7 @@ export class MembersController {
   ) {}
 
   // ============ PROFILE ENDPOINTS ============
-  
+
   @Get('profile/me')
   async getMyProfile(@CurrentUser() user: any) {
     return this.membersService.getProfile(user.id);
@@ -29,7 +42,7 @@ export class MembersController {
   @Patch('profile/me')
   async updateMyProfile(
     @CurrentUser() user: any,
-    @Body() updateProfileDto: UpdateProfileDto
+    @Body() updateProfileDto: UpdateProfileDto,
   ) {
     // Regular members update their own profile - isModerator defaults to false
     return this.membersService.updateProfile(user.id, updateProfileDto);
@@ -40,7 +53,7 @@ export class MembersController {
   async changePassword(
     @CurrentUser() user: any,
     @Body('currentPassword') currentPassword: string,
-    @Body('newPassword') newPassword: string
+    @Body('newPassword') newPassword: string,
   ) {
     if (!currentPassword || !newPassword) {
       throw new UnauthorizedException('Both current and new password are required');
@@ -49,7 +62,7 @@ export class MembersController {
   }
 
   // ============ PROFILE PICTURE ENDPOINTS ============
-  
+
   @Post('profile/picture')
   @UseInterceptors(FileInterceptor('file'))
   async uploadProfilePicture(
@@ -59,10 +72,10 @@ export class MembersController {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    
+
     const avatarUrl = await this.fileUploadService.uploadImage(file);
     const updatedUser = await this.membersService.updateProfilePicture(user.id, avatarUrl);
-    
+
     return {
       success: true,
       message: 'Profile picture uploaded successfully',
@@ -74,14 +87,14 @@ export class MembersController {
   @HttpCode(HttpStatus.OK)
   async removeProfilePicture(@CurrentUser() user: any) {
     await this.membersService.removeProfilePicture(user.id);
-    return { 
-      success: true, 
-      message: 'Profile picture removed successfully' 
+    return {
+      success: true,
+      message: 'Profile picture removed successfully',
     };
   }
 
-  // ============ SIMPLIFIED LOCATION ENDPOINT (Auto-detect only) ============
-  
+  // ============ SIMPLIFIED LOCATION ENDPOINT ============
+
   @Patch('profile/location')
   @HttpCode(HttpStatus.OK)
   async updateLocation(
@@ -96,8 +109,32 @@ export class MembersController {
     return this.membersService.updateLocation(user.id, { locationName, latitude, longitude });
   }
 
+  // ============ USERNAME ENDPOINTS ============
+
+  @Post('profile/username')
+  @HttpCode(HttpStatus.OK)
+  async setInitialUsername(@CurrentUser() user: any, @Body() setUsernameDto: SetUsernameDto) {
+    // Only allow if user doesn't have a username yet
+    const status = await this.membersService.getUsernameStatus(user.id);
+    if (status.username) {
+      throw new BadRequestException('Username already set. Use PUT to update.');
+    }
+    return this.membersService.setInitialUsername(user.id, setUsernameDto.username);
+  }
+
+  @Put('profile/username')
+  @HttpCode(HttpStatus.OK)
+  async updateUsername(@CurrentUser() user: any, @Body() setUsernameDto: SetUsernameDto) {
+    return this.membersService.updateUsername(user.id, setUsernameDto.username);
+  }
+
+  @Get('profile/username/status')
+  async getUsernameStatus(@CurrentUser() user: any) {
+    return this.membersService.getUsernameStatus(user.id);
+  }
+
   // ============ BASIC MEMBER ENDPOINTS ============
-  
+
   @Get('me')
   getProfile(@CurrentUser() user: any) {
     return user;

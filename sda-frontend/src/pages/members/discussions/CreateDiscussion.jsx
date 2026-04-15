@@ -4,103 +4,49 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { discussionsService } from '../../../services/discussionsService';
 import { groupsService } from '../../../services/groupsService';
-import { tagsService } from '../../../services/tagsService';
-import TagSelector from '../../../components/tags/TagSelector';
 
 function CreateDiscussion() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  
+
   const preselectedGroupId = searchParams.get('groupId');
 
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    groupId: preselectedGroupId || '',
-    tagNames: [],
-    isAnonymous: false,
-  });
-
-  const [userGroups, setUserGroups] = useState([]);
-  const [availableTags, setAvailableTags] = useState([]);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [fetchingData, setFetchingData] = useState(true);
   const [error, setError] = useState('');
-  const [focusedField, setFocusedField] = useState(null);
+  const [group, setGroup] = useState(null);
+  const [fetchingGroup, setFetchingGroup] = useState(!!preselectedGroupId);
 
   useEffect(() => {
     if (!user) {
       navigate('/login', { state: { from: '/discussions/create' } });
       return;
     }
-    
-    fetchUserData();
-  }, [user]);
-
-  const fetchUserData = async () => {
-    setFetchingData(true);
-    try {
-      const groupsResponse = await groupsService.getMyGroups();
-      let groups = [];
-      if (groupsResponse.data?.data) {
-        groups = groupsResponse.data.data;
-      } else if (groupsResponse.data) {
-        groups = groupsResponse.data;
-      } else if (Array.isArray(groupsResponse)) {
-        groups = groupsResponse;
-      } else {
-        groups = groupsResponse || [];
-      }
-      setUserGroups(groups);
-
-      const tagsResponse = await tagsService.getAllTags();
-      let tags = [];
-      if (tagsResponse.data) {
-        tags = tagsResponse.data;
-      } else if (Array.isArray(tagsResponse)) {
-        tags = tagsResponse;
-      } else {
-        tags = tagsResponse || [];
-      }
-      setAvailableTags(tags);
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    } finally {
-      setFetchingData(false);
+    if (preselectedGroupId) {
+      groupsService.getGroupById(preselectedGroupId)
+        .then(res => {
+          const groupData = res.data?.data || res.data;
+          setGroup(groupData);
+        })
+        .catch(err => console.error('Failed to fetch group:', err))
+        .finally(() => setFetchingGroup(false));
+    } else {
+      setFetchingGroup(false);
     }
-  };
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const handleTagsChange = (tags) => {
-    setFormData(prev => ({
-      ...prev,
-      tagNames: tags,
-    }));
-  };
+  }, [user, preselectedGroupId, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.title.trim() || !formData.content.trim()) {
-      setError('Title and content are required');
+
+    if (!title.trim()) {
+      setError('Title is required');
       return;
     }
-
-    if (formData.title.length < 5) {
+    if (title.length < 5) {
       setError('Title must be at least 5 characters');
-      return;
-    }
-
-    if (formData.content.length < 10) {
-      setError('Content must be at least 10 characters');
       return;
     }
 
@@ -109,23 +55,22 @@ function CreateDiscussion() {
 
     try {
       const newDiscussion = await discussionsService.createDiscussion({
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-        groupId: formData.groupId || undefined,
-        tagNames: formData.tagNames,
-        isAnonymous: formData.isAnonymous,
+        title: title.trim(),
+        content: content.trim() || undefined,
+        groupId: preselectedGroupId || undefined,
+        isAnonymous,
       });
 
       if (newDiscussion && newDiscussion.id) {
         navigate(`/discussions/${newDiscussion.id}`);
       } else {
-        setError('Failed to create discussion: No ID returned from server');
+        setError('Failed to create discussion. Please try again.');
         setLoading(false);
       }
     } catch (error) {
       console.error('Error creating discussion:', error);
       setError(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Failed to create discussion. Please try again.'
       );
       setLoading(false);
@@ -140,143 +85,97 @@ function CreateDiscussion() {
     }
   };
 
-  if (fetchingData) {
+  if (fetchingGroup) {
     return (
-      <div className="max-w-3xl mx-auto p-5">
-        <div className="text-center py-12">
-          <div className="spinner-gradient mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+          <p className="text-gray-500 mt-3">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Animated Blob Backgrounds */}
-      <div className="blob blob-1"></div>
-      <div className="blob blob-2"></div>
-      <div className="blob blob-3"></div>
-      
-      <div className="max-w-3xl mx-auto p-5 relative z-10">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <div className="max-w-2xl mx-auto p-4 sm:p-6 pb-20">
+        {/* Back button */}
+        <button
+          onClick={handleCancel}
+          className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+        >
+          <svg className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="font-medium">Back</span>
+        </button>
+
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={handleCancel}
-            className="group flex items-center gap-1 text-gray-500 hover:text-primary-500 transition-all duration-300 hover:translate-x-[-4px]"
-          >
-            <span className="text-lg">←</span>
-            <span>Back</span>
-          </button>
-          <h1 className="text-3xl font-bold text-gradient mt-4 mb-2">Create New Discussion</h1>
-          <p className="text-gray-500">Share your thoughts with the community</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create a post</h1>
+          <p className="text-gray-500 mt-1">Share your thoughts with the community</p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="glass-card-enhanced p-6 md:p-8 space-y-6 animate-slide-up">
+        <form onSubmit={handleSubmit} className="glass-card p-6 sm:p-8 space-y-5 animate-slide-up">
           {error && (
-            <div className="bg-red-50/90 backdrop-blur-sm border border-red-200 text-red-600 p-4 rounded-xl text-sm animate-slide-up flex items-center gap-2">
-              <span className="text-lg">⚠️</span>
+            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm flex items-center gap-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               {error}
             </div>
           )}
 
+          {/* Group context badge */}
+          {group && (
+            <div className="flex items-center gap-2 p-3 bg-primary-50 rounded-xl text-sm text-primary-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span>Posting in <strong>{group.name}</strong></span>
+            </div>
+          )}
+
           {/* Title */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Title <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              onFocus={() => setFocusedField('title')}
-              onBlur={() => setFocusedField(null)}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="What's on your mind?"
               maxLength={200}
-              className={`input-glass w-full transition-all duration-300 ${focusedField === 'title' ? 'ring-2 ring-primary-500 shadow-glow' : ''}`}
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
+              autoFocus
             />
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Be clear and specific</span>
-              <span className={`${formData.title.length > 180 ? 'text-amber-500' : 'text-gray-400'}`}>
-                {formData.title.length}/200
-              </span>
-            </div>
           </div>
 
           {/* Content */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Content <span className="text-red-500">*</span>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Content <span className="text-gray-400 text-xs">(optional)</span>
             </label>
             <textarea
-              name="content"
-              value={formData.content}
-              onChange={handleChange}
-              onFocus={() => setFocusedField('content')}
-              onBlur={() => setFocusedField(null)}
-              placeholder="Elaborate on your topic... (minimum 10 characters)"
-              rows={8}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write something... (minimum 10 characters if provided)"
+              rows={6}
               maxLength={5000}
-              className={`input-glass w-full resize-y transition-all duration-300 ${focusedField === 'content' ? 'ring-2 ring-primary-500 shadow-glow' : ''}`}
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y bg-gray-50 focus:bg-white transition"
             />
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Provide context and details</span>
-              <span className={`${formData.content.length > 4500 ? 'text-amber-500' : 'text-gray-400'}`}>
-                {formData.content.length}/5000
-              </span>
-            </div>
-          </div>
-
-          {/* Group Selection */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Post in Group <span className="text-gray-400">(optional)</span>
-            </label>
-            <select
-              name="groupId"
-              value={formData.groupId}
-              onChange={handleChange}
-              className="select-glass w-full"
-            >
-              <option value="">🌍 Public (no specific group)</option>
-              {userGroups.map(group => (
-                <option key={group.id} value={group.id}>
-                  🤝 {group.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              Select a group to post in, or leave public for everyone to see
-            </p>
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Tags <span className="text-gray-400">(optional, up to 5)</span>
-            </label>
-            <TagSelector
-              availableTags={availableTags}
-              selectedTags={formData.tagNames}
-              onChange={handleTagsChange}
-              maxTags={5}
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Add tags to help others find your discussion
-            </p>
           </div>
 
           {/* Anonymous Option */}
-          <div className="flex items-start gap-3 p-4 bg-white/40 backdrop-blur-sm rounded-xl border border-gray-100">
+          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
             <input
               type="checkbox"
-              name="isAnonymous"
-              checked={formData.isAnonymous}
-              onChange={handleChange}
-              className="checkbox-custom mt-0.5"
               id="anonymous"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             <div>
               <label htmlFor="anonymous" className="text-sm font-medium text-gray-700 cursor-pointer">
@@ -288,52 +187,35 @@ function CreateDiscussion() {
             </div>
           </div>
 
-          {/* Guidelines */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
-            <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
-              <span className="text-lg">💡</span> Posting Tips
-            </h4>
-            <ul className="text-sm text-blue-700 space-y-2">
-              <li className="flex items-start gap-2">
-                <span className="text-blue-500">•</span>
-                Be clear and specific in your title
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-500">•</span>
-                Provide context in your content
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-500">•</span>
-                Use tags to reach the right audience
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-500">•</span>
-                Be respectful and constructive
-              </li>
-            </ul>
-          </div>
-
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
               onClick={handleCancel}
-              className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-300 hover:-translate-y-0.5"
+              className="px-5 py-2 text-gray-700 hover:bg-gray-100 rounded-full transition font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn-shine px-6 py-2.5 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
             >
               {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="spinner-gradient w-4 h-4 border-2"></span>
-                  Creating...
-                </span>
+                <>
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Posting...
+                </>
               ) : (
-                'Create Discussion'
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Post
+                </>
               )}
             </button>
           </div>

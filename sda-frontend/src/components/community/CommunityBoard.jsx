@@ -1,3 +1,4 @@
+// src/pages/members/CommunityBoard.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { communityService } from '../../services/communityService';
@@ -7,6 +8,62 @@ import CreatePostModal from './CreatePostModal';
 import GuidelinesBanner from '../common/GuidelinesBanner';
 import PostFilters from '../../components/community/PostFilters';
 import TrendingPosts from '../../components/community/TrendingPosts';
+
+// Heroicons SVG Components
+const Icons = {
+  Building: () => (
+    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  ),
+  Location: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  Question: () => (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  Information: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  Check: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  ),
+  Exclamation: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  Spinner: () => (
+    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  ),
+  Plus: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  ),
+  Inbox: () => (
+    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414a1 1 0 00-.707-.293H4" />
+    </svg>
+  ),
+  Search: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  )
+};
 
 function CommunityBoard() {
   const { user, setUser } = useAuth();
@@ -23,7 +80,7 @@ function CommunityBoard() {
   // Filter states
   const [selectedType, setSelectedType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('all'); // 'all' or 'nearby'
+  const [viewMode, setViewMode] = useState('all');
   const [radius, setRadius] = useState(50);
   const [sortBy, setSortBy] = useState('newest');
   const [dateRange, setDateRange] = useState({ start: null, end: null });
@@ -33,7 +90,6 @@ function CommunityBoard() {
   const [locationMessage, setLocationMessage] = useState({ type: '', text: '' });
   const [showLocationInfo, setShowLocationInfo] = useState(false);
 
-  // Fetch posts (supports pagination and local filtering)
   const fetchPosts = async (reset = true, pageToFetch = 1) => {
     try {
       if (reset) {
@@ -82,19 +138,16 @@ function CommunityBoard() {
     }
   };
 
-  // Load more posts
   const loadMore = () => {
     if (!loadingMore && hasMore) {
       fetchPosts(false, page + 1);
     }
   };
 
-  // Detect changes in filters and refetch from scratch
   useEffect(() => {
     fetchPosts(true, 1);
   }, [selectedType, searchQuery, viewMode, radius]);
 
-  // Detect current location
   const detectMyLocation = async () => {
     setDetectingLocation(true);
     setLocationMessage({ type: '', text: '' });
@@ -139,10 +192,9 @@ function CommunityBoard() {
 
           setLocationMessage({
             type: 'success',
-            text: `📍 Location updated: ${locationName}`,
+            text: `Location updated: ${locationName}`,
           });
 
-          // If currently in nearby mode, refetch posts with new location
           if (viewMode === 'nearby') {
             fetchPosts(true, 1);
           }
@@ -188,28 +240,23 @@ function CommunityBoard() {
     );
   };
 
-  // Handle post deletion
   const handlePostDeleted = (postId) => {
     setPosts(prev => prev.filter(p => p.id !== postId));
     setFilteredPosts(prev => prev.filter(p => p.id !== postId));
   };
 
-  // Handle post update
   const handlePostUpdated = (updatedPost) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
     setFilteredPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
   };
 
-  // Filter and process posts (client-side filtering)
   useEffect(() => {
     let filtered = [...posts];
 
-    // Filter by type
     if (selectedType !== 'all') {
       filtered = filtered.filter(post => post.type === selectedType);
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(post =>
@@ -219,7 +266,6 @@ function CommunityBoard() {
       );
     }
 
-    // Filter by date range
     if (dateRange.start) {
       const startDate = new Date(dateRange.start);
       filtered = filtered.filter(post => new Date(post.createdAt) >= startDate);
@@ -229,7 +275,6 @@ function CommunityBoard() {
       filtered = filtered.filter(post => new Date(post.createdAt) <= endDate);
     }
 
-    // Sort posts
     switch (sortBy) {
       case 'newest':
         filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -257,7 +302,6 @@ function CommunityBoard() {
 
   const displayLocation = getUserDisplayLocation();
 
-  // Handle filter changes
   const handleFilterChange = (key, value) => {
     switch (key) {
       case 'type':
@@ -285,7 +329,6 @@ function CommunityBoard() {
 
   const handleViewModeChange = (mode) => {
     setViewMode(mode);
-    // Fetch will be triggered by useEffect that depends on viewMode
   };
 
   const handleClearFilters = () => {
@@ -294,69 +337,90 @@ function CommunityBoard() {
     setSortBy('newest');
     setDateRange({ start: null, end: null });
     setViewMode('all');
-    // fetchPosts will be triggered by useEffect
   };
 
   if (loading && posts.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-500 to-secondary-500 py-8 px-4">
-        <div className="max-w-6xl mx-auto text-center text-white py-12">
-          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin-slow mx-auto mb-4"></div>
-          <p>Loading community posts...</p>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-8 px-4">
+        <div className="max-w-6xl mx-auto text-center py-12">
+          <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+          <p className="text-gray-500 mt-3">Loading community posts...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-500 to-secondary-500 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-20">
         {/* Header */}
-        <div className="text-center text-white mb-8">
-          <h1 className="text-4xl font-bold mb-2">Community Board</h1>
-          <p className="text-lg opacity-90">Connect, share, and support each other</p>
+        <div className="text-center mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
+            <span className="text-primary-600">
+              <Icons.Building />
+            </span>
+            Community Board
+          </h1>
+          <p className="text-gray-500">Connect, share, and support each other</p>
         </div>
 
         {/* Guidelines Banner */}
         <GuidelinesBanner />
 
         {/* Location Status Bar */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="glass-card p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">📍</span>
+            <span className="text-gray-500">
+              <Icons.Location />
+            </span>
             {displayLocation ? (
-              <span className="text-white">
+              <span className="text-gray-700">
                 Current location: <strong>{displayLocation}</strong>
               </span>
             ) : (
-              <span className="text-yellow-300">Location not set</span>
+              <span className="text-yellow-600 flex items-center gap-2">
+                <Icons.Exclamation />
+                Location not set
+              </span>
             )}
             <button
               onClick={() => setShowLocationInfo(!showLocationInfo)}
-              className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-sm transition"
+              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-xs transition"
               title="Location information"
             >
-              ℹ️
+              ?
             </button>
           </div>
           <button
-            className={`px-4 py-2 rounded-lg font-medium transition ${
+            className={`px-4 py-2 rounded-full text-sm font-medium transition ${
               detectingLocation
-                ? 'bg-gray-500 text-white cursor-not-allowed'
-                : 'bg-white text-primary-500 hover:bg-primary-100'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm hover:shadow-md'
             }`}
             onClick={detectMyLocation}
             disabled={detectingLocation}
           >
-            {detectingLocation ? '🔄 Detecting...' : '📍 Update Location'}
+            {detectingLocation ? (
+              <span className="flex items-center gap-2">
+                <Icons.Spinner />
+                Detecting...
+              </span>
+            ) : (
+              'Update Location'
+            )}
           </button>
         </div>
 
         {/* Info Tooltip */}
         {showLocationInfo && (
-          <div className="bg-white rounded-xl p-4 mb-6 shadow-lg border border-primary-100">
-            <p className="font-semibold text-gray-800 mb-2">📍 How location works:</p>
-            <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 mb-3">
+          <div className="glass-card p-5 mb-6 border border-primary-100">
+            <p className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+              <span className="text-primary-600">
+                <Icons.Location />
+              </span>
+              How location works:
+            </p>
+            <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 mb-3 ml-2">
               <li>Your location helps you see posts from your area</li>
               <li>Click "Update Location" to detect your current city</li>
               <li>You can also set your location in your profile</li>
@@ -375,12 +439,17 @@ function CommunityBoard() {
         {/* Location Message */}
         {locationMessage.text && (
           <div
-            className={`p-3 rounded-lg mb-4 ${
+            className={`p-3 rounded-xl mb-4 flex items-center gap-2 ${
               locationMessage.type === 'success'
-                ? 'bg-green-100 text-green-800 border border-green-300'
-                : 'bg-red-100 text-red-800 border border-red-300'
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
             }`}
           >
+            {locationMessage.type === 'success' ? (
+              <span className="text-green-600"><Icons.Check /></span>
+            ) : (
+              <span className="text-red-600"><Icons.Exclamation /></span>
+            )}
             {locationMessage.text}
           </div>
         )}
@@ -414,18 +483,21 @@ function CommunityBoard() {
         <div className="flex justify-end mb-6">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 bg-white text-primary-500 font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-full font-medium hover:bg-primary-700 transition-all hover:shadow-md"
           >
-            + Create Post
+            <Icons.Plus />
+            Create Post
           </button>
         </div>
 
         {/* Posts Grid */}
         {filteredPosts.length === 0 ? (
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-12 shadow-xl text-center">
-            <div className="text-5xl mb-4">📭</div>
+          <div className="glass-card p-12 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 text-gray-400 mb-4">
+              <Icons.Inbox />
+            </div>
             <h3 className="text-xl font-semibold text-gray-800 mb-2">No posts found</h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               {searchQuery
                 ? 'Try adjusting your search'
                 : viewMode === 'nearby'
@@ -436,10 +508,10 @@ function CommunityBoard() {
               <button
                 onClick={() => {
                   setViewMode('all');
-                  // fetch will be triggered by useEffect
                 }}
-                className="mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition"
+                className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition"
               >
+                <Icons.Search />
                 View all posts
               </button>
             )}
@@ -466,7 +538,7 @@ function CommunityBoard() {
                 <button
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="px-6 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-medium transition disabled:opacity-50"
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full font-medium hover:bg-gray-200 transition disabled:opacity-50"
                 >
                   {loadingMore ? 'Loading...' : 'Load More'}
                 </button>

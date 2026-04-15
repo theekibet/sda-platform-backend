@@ -7,6 +7,8 @@ import {
   updateProfile,
   changePassword,
   updateLocation,
+  getUsernameStatus,
+  updateUsername,
 } from '../../services/api';
 import { useProfilePicture } from '../../hooks/useProfilePicture';
 import Avatar from '../../components/common/Avatar';
@@ -33,6 +35,18 @@ function Profile() {
   const [passwordData, setPasswordData] = useState({
     currentPassword: '', newPassword: '', confirmPassword: '',
   });
+
+  // Username state
+  const [usernameInfo, setUsernameInfo] = useState({
+    username: '',
+    canChange: true,
+    nextChangeDate: null,
+    cooldownDays: 30,
+  });
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [changingUsername, setChangingUsername] = useState(false);
 
   // Profile picture
   const { upload, remove, uploading, error: uploadError } = useProfilePicture();
@@ -70,9 +84,20 @@ function Profile() {
   const age = calculateAge(formData.dateOfBirth);
   const daysUntilBirthday = getDaysUntilBirthday(formData.dateOfBirth);
 
+  // Fetch username status
+  const fetchUsernameStatus = async () => {
+    try {
+      const response = await getUsernameStatus();
+      setUsernameInfo(response.data);
+    } catch (err) {
+      console.error('Failed to fetch username status:', err);
+    }
+  };
+
   useEffect(() => { 
     fetchProfile();
     refreshUserData();
+    fetchUsernameStatus();
   }, []);
 
   const refreshUserData = async () => {
@@ -262,6 +287,49 @@ function Profile() {
     }
   };
 
+  const handleUsernameChange = async (e) => {
+    e.preventDefault();
+    const trimmed = newUsername.trim();
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(trimmed)) {
+      setUsernameError('Username must be 3–30 characters: letters, numbers, underscore only.');
+      return;
+    }
+    setChangingUsername(true);
+    setUsernameError('');
+    try {
+      const response = await updateUsername(trimmed);
+      // Update local state
+      setUsernameInfo({
+        ...usernameInfo,
+        username: response.data.username,
+        lastUsernameChange: response.data.lastUsernameChange,
+        canChange: false,
+        nextChangeDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // approximate
+      });
+      updateUser({ ...user, username: response.data.username });
+      setShowUsernameModal(false);
+      setNewUsername('');
+      alert('Username changed successfully!');
+      // Refresh status
+      await fetchUsernameStatus();
+    } catch (err) {
+      const msg = err.response?.data?.message;
+      if (msg === 'Username already taken') {
+        setUsernameError('That username is already taken. Please choose another.');
+      } else {
+        setUsernameError(msg || 'Failed to change username.');
+      }
+    } finally {
+      setChangingUsername(false);
+    }
+  };
+
+  const openUsernameModal = () => {
+    setNewUsername('');
+    setUsernameError('');
+    setShowUsernameModal(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -300,6 +368,19 @@ function Profile() {
 
           <h2 className="text-2xl font-bold font-display text-gradient mt-3">{user?.name}</h2>
           <p className="text-gray-500">{user?.email}</p>
+          
+          {/* Display username with edit button */}
+          <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+            <span>@</span>
+            <span className="font-mono">{usernameInfo.username || user?.username || 'Not set'}</span>
+            <button 
+              onClick={openUsernameModal}
+              className="text-primary-600 hover:text-primary-700 transition ml-1"
+              title={usernameInfo.canChange ? 'Change username' : `Can change again after ${new Date(usernameInfo.nextChangeDate).toLocaleDateString()}`}
+            >
+              ✎
+            </button>
+          </div>
 
           <div className="flex gap-2 flex-wrap justify-center mt-4">
             <label className="btn-shine px-4 py-2 text-sm cursor-pointer bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl hover:shadow-glow transition">
@@ -480,6 +561,65 @@ function Profile() {
           </div>
         )}
       </div>
+
+      {/* Username Change Modal */}
+      {showUsernameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Change Username</h3>
+              <button
+                onClick={() => setShowUsernameModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Your username is how others see you in the community.
+              {!usernameInfo.canChange && (
+                <span className="block text-amber-600 mt-1">
+                  ⏰ You can change your username again on {new Date(usernameInfo.nextChangeDate).toLocaleDateString()}.
+                </span>
+              )}
+            </p>
+            <form onSubmit={handleUsernameChange}>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase())}
+                placeholder="e.g., john_doe"
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 mb-3"
+                autoFocus
+                disabled={!usernameInfo.canChange}
+              />
+              {usernameError && (
+                <p className="text-red-500 text-sm mb-3">{usernameError}</p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowUsernameModal(false)}
+                  className="flex-1 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={changingUsername || !usernameInfo.canChange}
+                  className="flex-1 bg-primary-600 text-white py-2 rounded-xl hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {changingUsername ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+            <p className="text-xs text-gray-400 mt-4 text-center">
+              Username can only contain letters, numbers, and underscores (3–30 characters).
+              Changes are limited to once every {usernameInfo.cooldownDays} days.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

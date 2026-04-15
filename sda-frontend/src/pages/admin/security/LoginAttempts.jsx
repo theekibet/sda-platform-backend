@@ -8,7 +8,7 @@ const LoginAttempts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [days, setDays] = useState(7);
-  const [viewMode, setViewMode] = useState('all'); // 'all' or 'grouped'
+  const [viewMode, setViewMode] = useState('all');
   const [pagination, setPagination] = useState({
     page: 1,
     total: 0,
@@ -53,29 +53,34 @@ const LoginAttempts = () => {
   const getStatusBadge = (success) => {
     return {
       label: success ? 'Success' : 'Failed',
-      color: success ? '#27ae60' : '#e74c3c',
+      color: success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700',
     };
   };
 
   if (loading && attempts.length === 0 && failedGrouped.length === 0) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingSpinner}></div>
-        <p>Loading login attempts...</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <p className="text-gray-500 mt-3">Loading login attempts...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={styles.header}>
-        <h3 style={styles.title}>🔐 Login Attempts</h3>
-        <div style={styles.controls}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          Login Attempts
+        </h3>
+        <div className="flex flex-wrap gap-3">
           <select
             value={days}
             onChange={(e) => setDays(parseInt(e.target.value))}
-            style={styles.select}
+            className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
           >
             <option value={1}>Last 24 hours</option>
             <option value={7}>Last 7 days</option>
@@ -83,22 +88,24 @@ const LoginAttempts = () => {
             <option value={90}>Last 90 days</option>
           </select>
 
-          <div style={styles.viewToggle}>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setViewMode('all')}
-              style={{
-                ...styles.toggleButton,
-                ...(viewMode === 'all' ? styles.toggleButtonActive : {}),
-              }}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                viewMode === 'all'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
             >
               All Attempts
             </button>
             <button
               onClick={() => setViewMode('grouped')}
-              style={{
-                ...styles.toggleButton,
-                ...(viewMode === 'grouped' ? styles.toggleButtonActive : {}),
-              }}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                viewMode === 'grouped'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
             >
               Failed by Email
             </button>
@@ -106,15 +113,17 @@ const LoginAttempts = () => {
         </div>
       </div>
 
-      <p style={styles.description}>
+      <p className="text-sm text-gray-500">
         Monitor login attempts and identify potential security threats.
       </p>
 
       {/* Error Message */}
       {error && (
-        <div style={styles.error}>
-          <span>⚠️</span>
-          <span>{error}</span>
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {error}
         </div>
       )}
 
@@ -122,58 +131,54 @@ const LoginAttempts = () => {
       {viewMode === 'all' && (
         <>
           {attempts.length === 0 ? (
-            <div style={styles.emptyState}>
-              <div style={styles.emptyIcon}>📊</div>
-              <h4 style={styles.emptyTitle}>No Login Attempts</h4>
-              <p style={styles.emptyText}>No login attempts recorded in this period.</p>
+            <div className="glass-card p-12 text-center">
+              <div className="text-5xl mb-4">📊</div>
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">No Login Attempts</h4>
+              <p className="text-gray-500">No login attempts recorded in this period.</p>
             </div>
           ) : (
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th>Email</th>
-                    <th>IP Address</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>User Agent</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">IP Address</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Time</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">User Agent</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-100">
                   {attempts.map(attempt => {
                     const status = getStatusBadge(attempt.success);
-                    
                     return (
-                      <tr key={attempt.id}>
-                        <td>
-                          <div style={styles.emailCell}>
-                            <span style={styles.email}>{attempt.email}</span>
+                      <tr key={attempt.id} className="hover:bg-gray-50 transition">
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-gray-800">{attempt.email}</span>
                             {attempt.user && (
-                              <span style={styles.userTag}>
-                                {attempt.user.name}
-                              </span>
+                              <span className="text-xs text-primary-600">{attempt.user.name}</span>
                             )}
                           </div>
                         </td>
-                        <td>
-                          <code style={styles.ipCode}>{attempt.ipAddress || 'Unknown'}</code>
+                        <td className="py-3 px-4">
+                          <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                            {attempt.ipAddress || 'Unknown'}
+                          </code>
                         </td>
-                        <td>{formatDate(attempt.createdAt)}</td>
-                        <td>
-                          <span style={{
-                            ...styles.statusBadge,
-                            backgroundColor: status.color,
-                          }}>
-                            {status.label}
-                          </span>
-                          {attempt.failureReason && (
-                            <span style={styles.failureReason}>
-                              {attempt.failureReason}
+                        <td className="py-3 px-4 text-gray-600">{formatDate(attempt.createdAt)}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                              {status.label}
                             </span>
-                          )}
+                            {attempt.failureReason && (
+                              <span className="text-xs text-gray-400 italic">{attempt.failureReason}</span>
+                            )}
+                          </div>
                         </td>
-                        <td>
-                          <div style={styles.userAgent}>
+                        <td className="py-3 px-4">
+                          <div className="text-xs text-gray-500 max-w-[200px] truncate" title={attempt.userAgent}>
                             {attempt.userAgent || 'Unknown'}
                           </div>
                         </td>
@@ -187,21 +192,21 @@ const LoginAttempts = () => {
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div style={styles.pagination}>
+            <div className="flex justify-center items-center gap-4 mt-6">
               <button
                 onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                 disabled={pagination.page === 1}
-                style={styles.pageButton}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ← Previous
               </button>
-              <span style={styles.pageInfo}>
+              <span className="text-sm text-gray-600">
                 Page {pagination.page} of {pagination.totalPages}
               </span>
               <button
                 onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
                 disabled={pagination.page === pagination.totalPages}
-                style={styles.pageButton}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next →
               </button>
@@ -214,35 +219,37 @@ const LoginAttempts = () => {
       {viewMode === 'grouped' && (
         <>
           {failedGrouped.length === 0 ? (
-            <div style={styles.emptyState}>
-              <div style={styles.emptyIcon}>🛡️</div>
-              <h4 style={styles.emptyTitle}>No Failed Attempts</h4>
-              <p style={styles.emptyText}>No failed login attempts in this period.</p>
+            <div className="glass-card p-12 text-center">
+              <div className="text-5xl mb-4">🛡️</div>
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">No Failed Attempts</h4>
+              <p className="text-gray-500">No failed login attempts in this period.</p>
             </div>
           ) : (
-            <div style={styles.groupedContainer}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {failedGrouped.map(item => (
-                <div key={item.email} style={styles.groupedCard}>
-                  <div style={styles.groupedHeader}>
-                    <div style={styles.groupedEmail}>
-                      <strong>{item.email}</strong>
-                    </div>
-                    <span style={styles.attemptCount}>
+                <div key={item.email} className="glass-card p-4 border border-gray-100">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="font-medium text-gray-800 break-all">{item.email}</div>
+                    <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-semibold text-gray-600">
                       {item.attempts} attempt{item.attempts !== 1 ? 's' : ''}
                     </span>
                   </div>
                   
-                  <div style={styles.warningBar}>
-                    <div style={{
-                      ...styles.warningFill,
-                      width: `${Math.min((item.attempts / 10) * 100, 100)}%`,
-                      backgroundColor: item.attempts > 5 ? '#e74c3c' : '#f39c12',
-                    }} />
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden mb-3">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        item.attempts > 5 ? 'bg-red-500' : 'bg-yellow-500'
+                      }`}
+                      style={{ width: `${Math.min((item.attempts / 10) * 100, 100)}%` }}
+                    />
                   </div>
 
                   {item.attempts > 5 && (
-                    <div style={styles.alertMessage}>
-                      ⚠️ High number of failed attempts - possible brute force attack
+                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs mb-3">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span>High number of failed attempts - possible brute force attack</span>
                     </div>
                   )}
 
@@ -252,7 +259,7 @@ const LoginAttempts = () => {
                         alert('This would block all IPs used by this email');
                       }
                     }}
-                    style={styles.blockButton}
+                    className="w-full mt-2 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
                   >
                     🚫 Block Associated IPs
                   </button>
@@ -264,248 +271,6 @@ const LoginAttempts = () => {
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '20px 0',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '40px',
-    color: '#666',
-  },
-  loadingSpinner: {
-    width: '30px',
-    height: '30px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '10px',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '10px',
-    flexWrap: 'wrap',
-    gap: '15px',
-  },
-  title: {
-    margin: 0,
-    color: '#333',
-    fontSize: '18px',
-    fontWeight: '600',
-  },
-  controls: {
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  select: {
-    padding: '6px 10px',
-    borderRadius: '4px',
-    border: '1px solid #ddd',
-    fontSize: '13px',
-    backgroundColor: 'white',
-  },
-  viewToggle: {
-    display: 'flex',
-    gap: '5px',
-    borderRadius: '5px',
-    overflow: 'hidden',
-  },
-  toggleButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#e0e0e0',
-    },
-  },
-  toggleButtonActive: {
-    backgroundColor: '#667eea',
-    color: 'white',
-    '&:hover': {
-      backgroundColor: '#5a6fd8',
-    },
-  },
-  description: {
-    margin: '0 0 20px 0',
-    color: '#666',
-    fontSize: '14px',
-  },
-  error: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '40px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  emptyIcon: {
-    fontSize: '48px',
-    marginBottom: '15px',
-  },
-  emptyTitle: {
-    margin: '0 0 10px 0',
-    color: '#333',
-    fontSize: '16px',
-  },
-  emptyText: {
-    margin: 0,
-    color: '#999',
-    fontSize: '14px',
-  },
-  tableContainer: {
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '13px',
-  },
-  emailCell: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-  },
-  email: {
-    fontWeight: '500',
-  },
-  userTag: {
-    fontSize: '11px',
-    color: '#667eea',
-  },
-  ipCode: {
-    padding: '2px 4px',
-    backgroundColor: '#f0f0f0',
-    borderRadius: '3px',
-    fontFamily: 'monospace',
-  },
-  statusBadge: {
-    padding: '3px 6px',
-    borderRadius: '3px',
-    fontSize: '11px',
-    color: 'white',
-    display: 'inline-block',
-    marginRight: '5px',
-  },
-  failureReason: {
-    fontSize: '11px',
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  userAgent: {
-    fontSize: '11px',
-    color: '#666',
-    maxWidth: '200px',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  pagination: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '15px',
-    marginTop: '20px',
-  },
-  pageButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:disabled': {
-      opacity: 0.5,
-      cursor: 'not-allowed',
-    },
-  },
-  pageInfo: {
-    fontSize: '13px',
-    color: '#666',
-  },
-  groupedContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '15px',
-  },
-  groupedCard: {
-    padding: '15px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    border: '1px solid #e0e0e0',
-  },
-  groupedHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '10px',
-  },
-  groupedEmail: {
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#333',
-  },
-  attemptCount: {
-    padding: '3px 8px',
-    backgroundColor: '#f0f0f0',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#666',
-  },
-  warningBar: {
-    height: '6px',
-    backgroundColor: '#e0e0e0',
-    borderRadius: '3px',
-    overflow: 'hidden',
-    marginBottom: '10px',
-  },
-  warningFill: {
-    height: '100%',
-    transition: 'width 0.3s',
-  },
-  alertMessage: {
-    padding: '8px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '4px',
-    fontSize: '12px',
-    marginBottom: '10px',
-  },
-  blockButton: {
-    width: '100%',
-    padding: '8px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#c0392b',
-    },
-  },
 };
 
 export default LoginAttempts;

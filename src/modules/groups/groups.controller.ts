@@ -80,8 +80,6 @@ export class GroupsController {
   async getGroups(
     @Request() req: any,
     @Query('tags') tags?: string,
-    @Query('location') location?: string,
-    @Query('meetingType') meetingType?: 'online' | 'in-person' | 'hybrid',
     @Query('search') search?: string,
     @Query('sort') sort?: 'popular' | 'new' | 'active',
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
@@ -91,8 +89,6 @@ export class GroupsController {
 
     const result = await this.groupsService.getGroups({
       tagNames,
-      location,
-      meetingType,
       search,
       sort,
       page,

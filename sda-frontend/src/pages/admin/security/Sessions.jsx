@@ -46,9 +46,7 @@ const Sessions = () => {
   };
 
   const handleTerminateSession = async (sessionId) => {
-    if (!window.confirm('Are you sure you want to terminate this session?')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to terminate this session?')) return;
     
     setActionLoading(true);
     setError(null);
@@ -66,9 +64,7 @@ const Sessions = () => {
   };
 
   const handleTerminateAllUserSessions = async (userId) => {
-    if (!window.confirm('Are you sure you want to terminate ALL sessions for this user?')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to terminate ALL sessions for this user?')) return;
     
     setActionLoading(true);
     setError(null);
@@ -111,7 +107,6 @@ const Sessions = () => {
 
   const getDeviceIcon = (userAgent) => {
     if (!userAgent) return '💻';
-    
     const ua = userAgent.toLowerCase();
     if (ua.includes('mobile')) return '📱';
     if (ua.includes('tablet')) return '📱';
@@ -123,131 +118,148 @@ const Sessions = () => {
 
   if (loading && sessions.length === 0) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingSpinner}></div>
-        <p>Loading active sessions...</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <p className="text-gray-500 mt-3">Loading active sessions...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={styles.header}>
-        <h3 style={styles.title}>🖥️ Active Sessions</h3>
-        <div style={styles.stats}>
-          <span style={styles.stat}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Active Sessions
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-1 bg-primary-50 text-primary-700 rounded-lg text-xs font-medium">
             <strong>{pagination.total}</strong> active sessions
           </span>
         </div>
       </div>
 
-      <p style={styles.description}>
+      <p className="text-sm text-gray-500">
         View and manage all active user sessions across the platform.
       </p>
 
       {/* Messages */}
       {error && (
-        <div style={styles.error}>
-          <span>⚠️</span>
-          <span>{error}</span>
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {error}
         </div>
       )}
 
       {success && (
-        <div style={styles.success}>
-          <span>✅</span>
-          <span>{success}</span>
+        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {success}
         </div>
       )}
 
       {/* Sessions Table */}
       {sessions.length === 0 ? (
-        <div style={styles.emptyState}>
-          <div style={styles.emptyIcon}>💤</div>
-          <h4 style={styles.emptyTitle}>No Active Sessions</h4>
-          <p style={styles.emptyText}>There are no active user sessions at the moment.</p>
+        <div className="glass-card p-12 text-center">
+          <div className="text-5xl mb-4">💤</div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-2">No Active Sessions</h4>
+          <p className="text-gray-500">There are no active user sessions at the moment.</p>
         </div>
       ) : (
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th>User</th>
-                <th>Device</th>
-                <th>IP Address</th>
-                <th>Last Active</th>
-                <th>Expires In</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">User</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Device</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">IP Address</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Last Active</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Expires In</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {sessions.map(session => (
-                <tr key={session.id}>
-                  <td>
-                    <div style={styles.userCell}>
-                      <div style={styles.userAvatar}>
-                        {session.user?.name?.charAt(0).toUpperCase()}
+            <tbody className="divide-y divide-gray-100">
+              {sessions.map(session => {
+                const timeRemaining = getTimeRemaining(session.expiresAt);
+                const isExpiringSoon = timeRemaining.includes('minutes') || timeRemaining.includes('hour');
+                const timeColor = timeRemaining === 'Expired' 
+                  ? 'text-gray-400' 
+                  : isExpiringSoon 
+                    ? 'text-yellow-600' 
+                    : 'text-green-600';
+                
+                return (
+                  <tr key={session.id} className="hover:bg-gray-50 transition">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center text-sm font-semibold">
+                          {session.user?.name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-800">{session.user?.name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-400">{session.user?.email || 'No email'}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={styles.userName}>{session.user?.name}</div>
-                        <div style={styles.userEmail}>{session.user?.email}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{getDeviceIcon(session.userAgent)}</span>
+                        <span className="text-gray-600 text-xs">{session.userAgent?.split(' ')[0] || 'Unknown'}</span>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={styles.deviceInfo}>
-                      <span style={styles.deviceIcon}>
-                        {getDeviceIcon(session.userAgent)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                        {session.ipAddress || 'Unknown'}
+                      </code>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">{formatDate(session.lastActive)}</td>
+                    <td className="py-3 px-4">
+                      <span className={`text-xs font-medium ${timeColor}`}>
+                        {timeRemaining}
                       </span>
-                      <span>{session.userAgent?.split(' ')[0] || 'Unknown'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <code style={styles.ipCode}>{session.ipAddress || 'Unknown'}</code>
-                  </td>
-                  <td>{formatDate(session.lastActive)}</td>
-                  <td>
-                    <span style={{
-                      ...styles.timeRemaining,
-                      color: getTimeRemaining(session.expiresAt).includes('hour') ? '#f39c12' : '#27ae60',
-                    }}>
-                      {getTimeRemaining(session.expiresAt)}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{
-                      ...styles.statusBadge,
-                      backgroundColor: session.isRevoked ? '#95a5a6' : '#27ae60',
-                    }}>
-                      {session.isRevoked ? 'Revoked' : 'Active'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={styles.actionButtons}>
-                      <button
-                        onClick={() => {
-                          setSelectedUserId(session.user?.id);
-                          setShowTerminateAll(true);
-                        }}
-                        style={styles.terminateAllButton}
-                        title="Terminate all sessions for this user"
-                      >
-                        🔚 All
-                      </button>
-                      <button
-                        onClick={() => handleTerminateSession(session.id)}
-                        disabled={actionLoading || session.isRevoked}
-                        style={styles.terminateButton}
-                        title="Terminate this session"
-                      >
-                        🔚
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        session.isRevoked 
+                          ? 'bg-gray-100 text-gray-600' 
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {session.isRevoked ? 'Revoked' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedUserId(session.user?.id);
+                            setShowTerminateAll(true);
+                          }}
+                          className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium hover:bg-yellow-200 transition"
+                          title="Terminate all sessions for this user"
+                        >
+                          All
+                        </button>
+                        <button
+                          onClick={() => handleTerminateSession(session.id)}
+                          disabled={actionLoading || session.isRevoked}
+                          className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Terminate this session"
+                        >
+                          Terminate
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -255,21 +267,21 @@ const Sessions = () => {
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div style={styles.pagination}>
+        <div className="flex justify-center items-center gap-4 mt-6">
           <button
             onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
             disabled={pagination.page === 1}
-            style={styles.pageButton}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ← Previous
           </button>
-          <span style={styles.pageInfo}>
+          <span className="text-sm text-gray-600">
             Page {pagination.page} of {pagination.totalPages}
           </span>
           <button
             onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
             disabled={pagination.page === pagination.totalPages}
-            style={styles.pageButton}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next →
           </button>
@@ -278,295 +290,50 @@ const Sessions = () => {
 
       {/* Terminate All Confirmation Modal */}
       {showTerminateAll && selectedUserId && (
-        <div style={styles.modalOverlay} onClick={() => setShowTerminateAll(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>Terminate All Sessions</h3>
-            <p style={styles.modalText}>
-              Are you sure you want to terminate ALL active sessions for this user?
-              This will force them to log in again on all devices.
-            </p>
-            <div style={styles.modalActions}>
-              <button
-                onClick={() => setShowTerminateAll(false)}
-                style={styles.modalCancelButton}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleTerminateAllUserSessions(selectedUserId)}
-                disabled={actionLoading}
-                style={{
-                  ...styles.modalConfirmButton,
-                  ...(actionLoading ? styles.buttonDisabled : {}),
-                }}
-              >
-                {actionLoading ? 'Terminating...' : 'Yes, Terminate All'}
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowTerminateAll(false)}>
+          <div className="glass-card max-w-md w-full animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Terminate All Sessions
+              </h3>
+              <p className="text-gray-600 text-sm mb-6">
+                Are you sure you want to terminate ALL active sessions for this user?
+                This will force them to log in again on all devices.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowTerminateAll(false)}
+                  className="px-5 py-2 text-gray-700 hover:bg-gray-100 rounded-full transition font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleTerminateAllUserSessions(selectedUserId)}
+                  disabled={actionLoading}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                >
+                  {actionLoading ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Terminating...
+                    </>
+                  ) : (
+                    'Yes, Terminate All'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '20px 0',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '40px',
-    color: '#666',
-  },
-  loadingSpinner: {
-    width: '30px',
-    height: '30px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '10px',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '10px',
-  },
-  title: {
-    margin: 0,
-    color: '#333',
-    fontSize: '18px',
-    fontWeight: '600',
-  },
-  stats: {
-    display: 'flex',
-    gap: '10px',
-  },
-  stat: {
-    padding: '4px 8px',
-    backgroundColor: '#f0f4ff',
-    borderRadius: '4px',
-    fontSize: '12px',
-    color: '#667eea',
-  },
-  description: {
-    margin: '0 0 20px 0',
-    color: '#666',
-    fontSize: '14px',
-  },
-  error: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  success: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '40px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  emptyIcon: {
-    fontSize: '48px',
-    marginBottom: '15px',
-  },
-  emptyTitle: {
-    margin: '0 0 10px 0',
-    color: '#333',
-    fontSize: '16px',
-  },
-  emptyText: {
-    margin: 0,
-    color: '#999',
-    fontSize: '14px',
-  },
-  tableContainer: {
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '13px',
-  },
-  userCell: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  userAvatar: {
-    width: '30px',
-    height: '30px',
-    borderRadius: '50%',
-    backgroundColor: '#667eea',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '14px',
-    fontWeight: 'bold',
-  },
-  userName: {
-    fontWeight: '500',
-    color: '#333',
-  },
-  userEmail: {
-    fontSize: '11px',
-    color: '#999',
-  },
-  deviceInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-  },
-  deviceIcon: {
-    fontSize: '16px',
-  },
-  ipCode: {
-    padding: '2px 4px',
-    backgroundColor: '#f0f0f0',
-    borderRadius: '3px',
-    fontFamily: 'monospace',
-  },
-  timeRemaining: {
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  statusBadge: {
-    padding: '3px 6px',
-    borderRadius: '3px',
-    fontSize: '11px',
-    color: 'white',
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: '5px',
-  },
-  terminateAllButton: {
-    padding: '4px 6px',
-    backgroundColor: '#f39c12',
-    color: 'white',
-    border: 'none',
-    borderRadius: '3px',
-    fontSize: '10px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#e67e22',
-    },
-  },
-  terminateButton: {
-    padding: '4px 6px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '3px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#c0392b',
-    },
-    '&:disabled': {
-      opacity: 0.5,
-      cursor: 'not-allowed',
-    },
-  },
-  pagination: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '15px',
-    marginTop: '20px',
-  },
-  pageButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:disabled': {
-      opacity: 0.5,
-      cursor: 'not-allowed',
-    },
-  },
-  pageInfo: {
-    fontSize: '13px',
-    color: '#666',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10000,
-  },
-  modal: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '10px',
-    maxWidth: '400px',
-    width: '90%',
-  },
-  modalTitle: {
-    margin: '0 0 15px 0',
-    color: '#333',
-    fontSize: '18px',
-  },
-  modalText: {
-    margin: '0 0 20px 0',
-    color: '#666',
-    fontSize: '14px',
-    lineHeight: '1.5',
-  },
-  modalActions: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-  },
-  modalCancelButton: {
-    padding: '8px 16px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  modalConfirmButton: {
-    padding: '8px 16px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
 };
 
 export default Sessions;

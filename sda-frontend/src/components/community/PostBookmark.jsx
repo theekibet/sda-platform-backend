@@ -1,3 +1,4 @@
+// src/components/community/PostBookmark.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { communityService } from '../../services/communityService';
@@ -51,15 +52,26 @@ const PostBookmark = ({ postId, onBookmarkChange }) => {
     <button
       onClick={toggleBookmark}
       disabled={loading}
-      className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full border transition-all duration-200 cursor-pointer text-sm ${
+      className={`inline-flex items-center gap-1.5 p-1.5 rounded-lg transition-all duration-200 ${
         isBookmarked
-          ? 'bg-amber-50 border-amber-500 text-amber-600'
-          : 'bg-transparent border-gray-300 text-gray-600 hover:border-amber-400 hover:text-amber-500'
+          ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+          : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'
       } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
       title={isBookmarked ? 'Remove from bookmarks' : 'Save to bookmarks'}
     >
-      <span className="text-sm">{isBookmarked ? '🔖' : '📑'}</span>
-      <span className="text-xs font-medium">{isBookmarked ? 'Saved' : 'Save'}</span>
+      <svg 
+        className={`w-5 h-5 transition-transform ${loading ? 'animate-pulse' : ''}`}
+        fill={isBookmarked ? 'currentColor' : 'none'}
+        stroke="currentColor" 
+        viewBox="0 0 24 24"
+      >
+        <path 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          strokeWidth={2} 
+          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" 
+        />
+      </svg>
     </button>
   );
 };

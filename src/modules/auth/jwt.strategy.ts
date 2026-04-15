@@ -15,7 +15,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     
-    // Ensure secret exists
     if (!secret) {
       throw new Error('JWT_SECRET environment variable is not defined');
     }
@@ -29,7 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     try {
-      // Extract user ID from payload
       const userId = payload.sub;
       
       if (!userId) {
@@ -37,7 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Invalid token payload');
       }
 
-      // Live DB check on EVERY request - get fresh user data
+      // Live DB check on EVERY request - get fresh user data including username
       const user = await this.prisma.member.findUnique({
         where: { id: userId },
         select: {
@@ -45,13 +43,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           email: true,
           name: true,
           avatarUrl: true,
-          isModerator: true,      // ✅ CHANGED from isAdmin
+          isModerator: true,
           isSuperAdmin: true,
           isSuspended: true,
           suspendedUntil: true,
           suspensionReason: true,
           locationName: true,
           lastActiveAt: true,
+          username: true,           // ✅ include username
         },
       });
 
@@ -60,11 +59,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('User not found');
       }
 
-      // Check if user is suspended
+      // Check suspension
       const now = new Date();
       const isSuspended = user.isSuspended && (
-        !user.suspendedUntil || // Permanent suspension
-        user.suspendedUntil > now // Active temporary suspension
+        !user.suspendedUntil ||
+        user.suspendedUntil > now
       );
 
       if (isSuspended) {
@@ -75,12 +74,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (user.suspendedUntil) {
           suspensionMessage += ` until ${user.suspendedUntil.toLocaleDateString()}`;
         }
-        
         this.logger.warn(`Suspended user attempted access: ${userId}`);
         throw new UnauthorizedException(suspensionMessage);
       }
 
-      // Update last active timestamp (fire and forget - don't await)
+      // Update last active (fire and forget)
       this.prisma.member.update({
         where: { id: user.id },
         data: { lastActiveAt: new Date() },
@@ -88,25 +86,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         this.logger.error(`Failed to update lastActiveAt for user ${user.id}: ${err.message}`);
       });
 
-      // Return fresh user data from DB - this will be available in @CurrentUser() decorator
-      // We include both `id` (for backward compatibility) and `userId` (for new controllers)
+      // Return user object with username
       return {
         id: user.id,
-        userId: user.id,           // ✅ added for consistent user identification
+        userId: user.id,
+        username: user.username,      // ✅ now available in @CurrentUser()
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
-        isModerator: user.isModerator,  // ✅ CHANGED from isAdmin
+        isModerator: user.isModerator,
         isSuperAdmin: user.isSuperAdmin,
         locationName: user.locationName,
       };
 
     } catch (error) {
-      // If it's already an UnauthorizedException, rethrow it
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      
       this.logger.error(`JWT validation failed: ${error.message}`);
       throw new UnauthorizedException('Authentication failed');
     }

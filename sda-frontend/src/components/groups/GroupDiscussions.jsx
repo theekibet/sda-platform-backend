@@ -15,27 +15,21 @@ function GroupDiscussions({ groupId }) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [sort, setSort] = useState('new'); // 'new', 'popular', 'trending', 'hot'
+  const [sort, setSort] = useState('new');
   const [canPost, setCanPost] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
 
-  // Fetch user's bookmarks when logged in (optional - won't break if endpoint doesn't exist)
   useEffect(() => {
-    if (user) {
-      fetchUserBookmarks();
-    }
+    if (user) fetchUserBookmarks();
   }, [user]);
 
   const fetchUserBookmarks = async () => {
     try {
-      // Try to fetch bookmarks, but don't break if it fails
       const response = await discussionsService.getUserBookmarks(1, 100);
-      // The service returns { discussions: [], total, page, totalPages }
       const bookmarks = response.discussions || [];
       const ids = new Set(bookmarks.map(b => b.id));
       setBookmarkedIds(ids);
     } catch (error) {
-      // Silently fail - bookmarks are optional
       console.debug('Bookmarks feature not available yet');
     }
   };
@@ -45,13 +39,11 @@ function GroupDiscussions({ groupId }) {
       fetchGroupDetails();
       fetchDiscussions();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, sort, page]);
 
   const fetchGroupDetails = async () => {
     try {
       const response = await groupsService.getGroupById(groupId);
-      // Handle different response structures
       const groupData = response.data?.data || response.data;
       setGroup(groupData);
       setCanPost(groupData?.canPost || groupData?.userMembership?.status === 'approved');
@@ -65,7 +57,6 @@ function GroupDiscussions({ groupId }) {
       setPage(1);
       setDiscussions([]);
     }
-    
     setLoading(true);
     try {
       const response = await discussionsService.getDiscussions({
@@ -74,16 +65,12 @@ function GroupDiscussions({ groupId }) {
         limit: 20,
         sort,
       });
-
-      // The service returns { discussions: [], total, page, totalPages }
       const newDiscussions = response.discussions || [];
-      
       if (reset || page === 1) {
         setDiscussions(newDiscussions);
       } else {
         setDiscussions(prev => [...prev, ...newDiscussions]);
       }
-      
       setHasMore(newDiscussions.length === 20);
     } catch (error) {
       console.error('Error fetching group discussions:', error);
@@ -97,9 +84,7 @@ function GroupDiscussions({ groupId }) {
   };
 
   const handleLoadMore = () => {
-    if (!loading && hasMore) {
-      setPage(prev => prev + 1);
-    }
+    if (!loading && hasMore) setPage(prev => prev + 1);
   };
 
   const handleSortChange = (newSort) => {
@@ -108,69 +93,57 @@ function GroupDiscussions({ groupId }) {
   };
 
   const handleBookmarkChange = useCallback(async (discussionId, newBookmarked) => {
-    // Optimistic update
     setBookmarkedIds(prev => {
       const newSet = new Set(prev);
-      if (newBookmarked) {
-        newSet.add(discussionId);
-      } else {
-        newSet.delete(discussionId);
-      }
+      if (newBookmarked) newSet.add(discussionId);
+      else newSet.delete(discussionId);
       return newSet;
     });
-
-    // Actually toggle on server
     try {
       await discussionsService.toggleBookmark(discussionId);
     } catch (error) {
-      console.error('Error toggling bookmark:', error);
-      // Revert optimistic update on error
       setBookmarkedIds(prev => {
         const newSet = new Set(prev);
-        if (newBookmarked) {
-          newSet.delete(discussionId);
-        } else {
-          newSet.add(discussionId);
-        }
+        if (newBookmarked) newSet.delete(discussionId);
+        else newSet.add(discussionId);
         return newSet;
       });
     }
   }, []);
 
   const formatTimeAgo = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMinutes = Math.floor((now - date) / (1000 * 60));
-    
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
-    if (diffMinutes < 2880) return 'Yesterday';
-    return date.toLocaleDateString();
+    const diff = Math.floor((Date.now() - new Date(timestamp)) / 60000);
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff}m ago`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+    if (diff < 2880) return 'Yesterday';
+    return new Date(timestamp).toLocaleDateString();
   };
 
-  // Check if there are any discussions
   const hasDiscussions = discussions.length > 0;
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white rounded-xl shadow-sm p-4">
+      <div className="glass-card p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800">
-            💬 Group Discussions
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Group Discussions
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 mt-0.5">
             {discussions.length} {discussions.length === 1 ? 'discussion' : 'discussions'}
           </p>
         </div>
         
         <div className="flex items-center gap-3">
-          {/* Sort */}
+          {/* Sort Dropdown */}
           <select
             value={sort}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+            className="px-4 py-2 border border-gray-200 rounded-full text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white cursor-pointer"
           >
             <option value="new">🆕 Newest</option>
             <option value="popular">🔥 Most Popular</option>
@@ -182,12 +155,18 @@ function GroupDiscussions({ groupId }) {
           {canPost ? (
             <button
               onClick={handleCreateDiscussion}
-              className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-full text-sm font-medium hover:bg-primary-700 transition-all hover:shadow-md"
             >
-              + New Discussion
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Discussion
             </button>
           ) : (
-            <span className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-md">
+            <span className="inline-flex items-center gap-1 px-4 py-2 text-sm text-gray-500 bg-gray-100 rounded-full">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
               Join to post
             </span>
           )}
@@ -196,21 +175,23 @@ function GroupDiscussions({ groupId }) {
 
       {/* Discussions List */}
       {loading && discussions.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-gray-500 text-sm">Loading discussions...</p>
+        <div className="text-center py-12">
+          <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+          <p className="text-gray-500 mt-3">Loading discussions...</p>
         </div>
       ) : !hasDiscussions ? (
-        <div className="text-center py-12 bg-gray-50 rounded-xl">
-          <p className="text-gray-500 mb-2">No discussions yet</p>
-          <p className="text-sm text-gray-400 mb-4">
-            Start the first conversation in this group!
-          </p>
+        <div className="glass-card p-12 text-center">
+          <div className="text-5xl mb-4">💬</div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">No discussions yet</h3>
+          <p className="text-gray-500 mb-6">Start the first conversation in this group!</p>
           {canPost && (
             <button
               onClick={handleCreateDiscussion}
-              className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition"
+              className="inline-flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition"
             >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
               Start a Discussion
             </button>
           )}
@@ -234,7 +215,7 @@ function GroupDiscussions({ groupId }) {
               <button
                 onClick={handleLoadMore}
                 disabled={loading}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition disabled:opacity-50 text-sm"
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition disabled:opacity-50 text-sm font-medium"
               >
                 {loading ? 'Loading...' : 'Load More'}
               </button>

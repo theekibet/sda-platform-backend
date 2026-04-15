@@ -15,12 +15,13 @@ export class PrayerService {
 
   // ============ PRAYER REQUESTS ============
 
+  // FIXED: Always store authorId (even for anonymous) so user can edit/delete later
   async createPrayerRequest(userId: string | null, dto: CreatePrayerRequestDto, locationName?: string) {
     const { content, isAnonymous } = dto;
     return this.prisma.prayerRequest.create({
       data: {
         content,
-        authorId: isAnonymous ? null : userId,
+        authorId: userId, // ✅ Always store, even if anonymous
         isAnonymous: isAnonymous || false,
         locationName: locationName || null,
       },
@@ -32,6 +33,7 @@ export class PrayerService {
     });
   }
 
+  // FIXED: Use prayedCount field directly (not _count)
   async getPrayerRequests(currentUserId: string | null, locationName?: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const where = locationName ? { locationName } : {};
@@ -41,7 +43,6 @@ export class PrayerService {
         where,
         include: {
           author: { select: { id: true, name: true, avatarUrl: true } },
-          _count: { select: { prayers: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -65,7 +66,9 @@ export class PrayerService {
     return {
       requests: requests.map(r => ({
         ...r,
-        prayedCount: r._count?.prayers || 0,
+        // Hide author if anonymous
+        author: r.isAnonymous ? null : r.author,
+        prayedCount: r.prayedCount, // ✅ Use dedicated field
         hasPrayed: userPrayerMap.get(r.id) || false,
       })),
       total,
@@ -82,6 +85,7 @@ export class PrayerService {
     });
   }
 
+  // FIXED: Use prayedCount field
   async getPrayerRequestById(id: string, currentUserId?: string) {
     const request = await this.prisma.prayerRequest.findUnique({
       where: { id },
@@ -92,7 +96,6 @@ export class PrayerService {
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
-        _count: { select: { prayers: true } },
       },
     });
     if (!request) throw new NotFoundException('Prayer request not found');
@@ -107,7 +110,8 @@ export class PrayerService {
 
     return {
       ...request,
-      prayedCount: request._count?.prayers || 0,
+      author: request.isAnonymous ? null : request.author,
+      prayedCount: request.prayedCount, // ✅ Use field
       hasPrayed,
     };
   }
@@ -115,6 +119,7 @@ export class PrayerService {
   async updatePrayerRequest(userId: string, prayerId: string, dto: UpdatePrayerRequestDto) {
     const prayer = await this.prisma.prayerRequest.findUnique({ where: { id: prayerId } });
     if (!prayer) throw new NotFoundException('Prayer request not found');
+    // ✅ Now works for anonymous prayers because authorId is stored
     if (prayer.authorId !== userId) throw new ForbiddenException('You can only update your own prayer requests');
 
     const { content } = dto;
@@ -132,6 +137,7 @@ export class PrayerService {
     await this.prisma.prayerRequest.delete({ where: { id: prayerId } });
   }
 
+  // ✅ FIXED: Transaction with increased timeout, notifications moved OUTSIDE
   async prayForRequest(userId: string, requestId: string) {
     const request = await this.prisma.prayerRequest.findUnique({
       where: { id: requestId },
@@ -139,12 +145,13 @@ export class PrayerService {
     });
     if (!request) throw new NotFoundException('Prayer request not found');
 
-    return this.prisma.$transaction(async (tx) => {
+    // Transaction with 10 second timeout - only database operations
+    const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.prayerInteraction.findUnique({
         where: { requestId_memberId: { requestId, memberId: userId } },
       });
       if (existing) {
-        return { message: 'You already prayed for this request', alreadyPrayed: true };
+        return { alreadyPrayed: true };
       }
 
       await tx.prayerInteraction.create({ data: { requestId, memberId: userId } });
@@ -153,19 +160,28 @@ export class PrayerService {
         data: { prayedCount: { increment: 1 } },
       });
 
-      if (request.authorId && !request.isAnonymous) {
-        await this.notificationService.createNotification({
-          userId: request.authorId,
-          type: 'prayer_response',
-          title: 'Someone prayed for your request',
-          message: `Your prayer request "${request.content.substring(0, 50)}..." received a prayer.`,
-          data: { prayerRequestId: requestId },
-        });
-      }
-      return { message: 'Prayer recorded', alreadyPrayed: false };
-    });
+      return { alreadyPrayed: false };
+    }, { timeout: 10000 }); // 10 seconds timeout
+
+    if (result.alreadyPrayed) {
+      return { message: 'You already prayed for this request', alreadyPrayed: true };
+    }
+
+    // ✅ Send notification AFTER transaction (fire and forget)
+    if (request.authorId && !request.isAnonymous) {
+      this.notificationService.createNotification({
+        userId: request.authorId,
+        type: 'prayer_response',
+        title: 'Someone prayed for your request',
+        message: `Your prayer request "${request.content.substring(0, 50)}..." received a prayer.`,
+        data: { prayerRequestId: requestId },
+      }).catch(err => console.error('Failed to send prayer notification:', err));
+    }
+
+    return { message: 'Prayer recorded', alreadyPrayed: false };
   }
 
+  // FIXED: Use prayedCount field for ordering
   async getTrendingPrayers(currentUserId: string | null, limit = 10) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -174,9 +190,8 @@ export class PrayerService {
       where: { createdAt: { gte: sevenDaysAgo } },
       include: {
         author: { select: { id: true, name: true, avatarUrl: true } },
-        _count: { select: { prayers: true } },
       },
-      orderBy: { prayers: { _count: 'desc' } },
+      orderBy: { prayedCount: 'desc' }, // ✅ Order by dedicated field
       take: limit,
     });
 
@@ -194,7 +209,8 @@ export class PrayerService {
 
     return requests.map(r => ({
       ...r,
-      prayedCount: r._count?.prayers || 0,
+      author: r.isAnonymous ? null : r.author,
+      prayedCount: r.prayedCount, // ✅ Use field
       hasPrayed: userPrayerMap.get(r.id) || false,
     }));
   }
@@ -218,6 +234,7 @@ export class PrayerService {
     });
   }
 
+  // FIXED: Use encouragedCount field directly
   async getTestimonies(currentUserId: string | null, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const [testimonies, total] = await Promise.all([
@@ -225,7 +242,6 @@ export class PrayerService {
         include: {
           author: { select: { id: true, name: true, avatarUrl: true } },
           prayerRequest: { select: { id: true, content: true } },
-          _count: { select: { encouragements: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -249,7 +265,7 @@ export class PrayerService {
     return {
       testimonies: testimonies.map(t => ({
         ...t,
-        encouragedCount: t._count?.encouragements || 0,
+        encouragedCount: t.encouragedCount, // ✅ Use dedicated field
         hasEncouraged: userEncouragementMap.get(t.id) || false,
       })),
       total,
@@ -295,6 +311,7 @@ export class PrayerService {
     await this.prisma.testimony.delete({ where: { id: testimonyId } });
   }
 
+  // ✅ FIXED: Transaction with increased timeout, notifications moved OUTSIDE
   async encourageTestimony(userId: string, testimonyId: string) {
     const testimony = await this.prisma.testimony.findUnique({
       where: { id: testimonyId },
@@ -302,12 +319,13 @@ export class PrayerService {
     });
     if (!testimony) throw new NotFoundException('Testimony not found');
 
-    return this.prisma.$transaction(async (tx) => {
+    // Transaction with 10 second timeout - only database operations
+    const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.encouragement.findUnique({
         where: { testimonyId_memberId: { testimonyId, memberId: userId } },
       });
       if (existing) {
-        return { message: 'You already encouraged this testimony', alreadyEncouraged: true };
+        return { alreadyEncouraged: true };
       }
 
       await tx.encouragement.create({ data: { testimonyId, memberId: userId } });
@@ -316,16 +334,24 @@ export class PrayerService {
         data: { encouragedCount: { increment: 1 } },
       });
 
-      if (testimony.authorId) {
-        await this.notificationService.createNotification({
-          userId: testimony.authorId,
-          type: 'testimony_encouragement',
-          title: 'Someone encouraged your testimony',
-          message: `Your testimony "${testimony.title}" received encouragement.`,
-          data: { testimonyId },
-        });
-      }
-      return { message: 'Encouragement recorded', alreadyEncouraged: false };
-    });
+      return { alreadyEncouraged: false };
+    }, { timeout: 10000 }); // 10 seconds timeout
+
+    if (result.alreadyEncouraged) {
+      return { message: 'You already encouraged this testimony', alreadyEncouraged: true };
+    }
+
+    // ✅ Send notification AFTER transaction (fire and forget)
+    if (testimony.authorId) {
+      this.notificationService.createNotification({
+        userId: testimony.authorId,
+        type: 'testimony_encouragement',
+        title: 'Someone encouraged your testimony',
+        message: `Your testimony "${testimony.title}" received encouragement.`,
+        data: { testimonyId },
+      }).catch(err => console.error('Failed to send encouragement notification:', err));
+    }
+
+    return { message: 'Encouragement recorded', alreadyEncouraged: false };
   }
 }

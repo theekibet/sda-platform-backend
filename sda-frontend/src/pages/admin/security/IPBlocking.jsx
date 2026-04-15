@@ -111,155 +111,190 @@ const IPBlocking = () => {
 
   if (loading && ips.length === 0) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.loadingSpinner}></div>
-        <p>Loading blocked IPs...</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-primary-500 rounded-full animate-spin"></div>
+        <p className="text-gray-500 mt-3">Loading blocked IPs...</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={styles.header}>
-        <h3 style={styles.title}>🚫 IP Blocking</h3>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+          IP Blocking
+        </h3>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          style={styles.addButton}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
         >
-          {showAddForm ? 'Cancel' : '+ Block IP'}
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          {showAddForm ? 'Cancel' : 'Block IP'}
         </button>
       </div>
 
-      <p style={styles.description}>
+      <p className="text-sm text-gray-500">
         Block malicious IP addresses from accessing your platform.
       </p>
 
       {/* Messages */}
       {error && (
-        <div style={styles.error}>
-          <span>⚠️</span>
-          <span>{error}</span>
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {error}
         </div>
       )}
 
       {success && (
-        <div style={styles.success}>
-          <span>✅</span>
-          <span>{success}</span>
+        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {success}
         </div>
       )}
 
       {/* Add IP Form */}
       {showAddForm && (
-        <form onSubmit={handleBlockIP} style={styles.form}>
-          <h4 style={styles.formTitle}>Block New IP Address</h4>
+        <div className="glass-card p-5 border border-gray-100">
+          <h4 className="text-md font-semibold text-gray-800 mb-4">Block New IP Address</h4>
           
-          <div style={styles.formGroup}>
-            <label style={styles.label}>IP Address *</label>
-            <input
-              type="text"
-              value={newIP.ipAddress}
-              onChange={(e) => setNewIP({...newIP, ipAddress: e.target.value})}
-              placeholder="e.g., 192.168.1.1 or 203.0.113.0/24"
-              style={styles.input}
-              required
-            />
-          </div>
+          <form onSubmit={handleBlockIP} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                IP Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newIP.ipAddress}
+                onChange={(e) => setNewIP({...newIP, ipAddress: e.target.value})}
+                placeholder="e.g., 192.168.1.1 or 203.0.113.0/24"
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
+                required
+              />
+            </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Reason</label>
-            <input
-              type="text"
-              value={newIP.reason}
-              onChange={(e) => setNewIP({...newIP, reason: e.target.value})}
-              placeholder="Why is this IP being blocked?"
-              style={styles.input}
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason
+              </label>
+              <input
+                type="text"
+                value={newIP.reason}
+                onChange={(e) => setNewIP({...newIP, reason: e.target.value})}
+                placeholder="Why is this IP being blocked?"
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
+              />
+            </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Expires At (optional)</label>
-            <input
-              type="datetime-local"
-              value={newIP.expiresAt}
-              onChange={(e) => setNewIP({...newIP, expiresAt: e.target.value})}
-              style={styles.input}
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Expires At <span className="text-gray-400 text-xs">(optional)</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={newIP.expiresAt}
+                onChange={(e) => setNewIP({...newIP, expiresAt: e.target.value})}
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition bg-gray-50 focus:bg-white"
+              />
+            </div>
 
-          <div style={styles.formActions}>
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              style={styles.cancelButton}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={actionLoading}
-              style={{
-                ...styles.submitButton,
-                ...(actionLoading ? styles.buttonDisabled : {}),
-              }}
-            >
-              {actionLoading ? 'Blocking...' : 'Block IP'}
-            </button>
-          </div>
-        </form>
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="px-5 py-2 text-gray-700 hover:bg-gray-100 rounded-full transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              >
+                {actionLoading ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Blocking...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Block IP
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {/* IP List */}
       {ips.length === 0 ? (
-        <div style={styles.emptyState}>
-          <div style={styles.emptyIcon}>🛡️</div>
-          <h4 style={styles.emptyTitle}>No Blocked IPs</h4>
-          <p style={styles.emptyText}>All IP addresses are currently allowed.</p>
+        <div className="glass-card p-12 text-center">
+          <div className="text-5xl mb-4">🛡️</div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-2">No Blocked IPs</h4>
+          <p className="text-gray-500">All IP addresses are currently allowed.</p>
         </div>
       ) : (
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th>IP Address</th>
-                <th>Reason</th>
-                <th>Blocked By</th>
-                <th>Blocked At</th>
-                <th>Expires</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">IP Address</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Reason</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Blocked By</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Blocked At</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Expires</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {ips.map(ip => {
                 const expired = isExpired(ip.expiresAt);
-                
                 return (
-                  <tr key={ip.id} style={expired ? styles.expiredRow : {}}>
-                    <td>
-                      <code style={styles.ipCode}>{ip.ipAddress}</code>
+                  <tr key={ip.id} className={`${expired ? 'opacity-60' : ''} hover:bg-gray-50 transition`}>
+                    <td className="py-3 px-4">
+                      <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                        {ip.ipAddress}
+                      </code>
                     </td>
-                    <td>{ip.reason || '—'}</td>
-                    <td>{ip.blockedBy?.name || 'System'}</td>
-                    <td>{formatDate(ip.createdAt)}</td>
-                    <td>{formatDate(ip.expiresAt)}</td>
-                    <td>
-                      <span style={{
-                        ...styles.statusBadge,
-                        backgroundColor: expired ? '#95a5a6' : '#e74c3c',
-                      }}>
+                    <td className="py-3 px-4 text-gray-600">{ip.reason || '—'}</td>
+                    <td className="py-3 px-4 text-gray-600">{ip.blockedBy?.name || 'System'}</td>
+                    <td className="py-3 px-4 text-gray-600">{formatDate(ip.createdAt)}</td>
+                    <td className="py-3 px-4 text-gray-600">{formatDate(ip.expiresAt)}</td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        expired ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-700'
+                      }`}>
                         {expired ? 'Expired' : 'Active'}
                       </span>
                     </td>
-                    <td>
+                    <td className="py-3 px-4">
                       <button
                         onClick={() => handleUnblockIP(ip.ipAddress)}
                         disabled={actionLoading}
-                        style={styles.unblockButton}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition"
                         title="Unblock IP"
                       >
-                        🔓 Unblock
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Unblock
                       </button>
                     </td>
                   </tr>
@@ -272,21 +307,21 @@ const IPBlocking = () => {
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div style={styles.pagination}>
+        <div className="flex justify-center items-center gap-4 mt-6">
           <button
             onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
             disabled={pagination.page === 1}
-            style={styles.pageButton}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ← Previous
           </button>
-          <span style={styles.pageInfo}>
+          <span className="text-sm text-gray-600">
             Page {pagination.page} of {pagination.totalPages}
           </span>
           <button
             onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
             disabled={pagination.page === pagination.totalPages}
-            style={styles.pageButton}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next →
           </button>
@@ -294,222 +329,6 @@ const IPBlocking = () => {
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '20px 0',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '40px',
-    color: '#666',
-  },
-  loadingSpinner: {
-    width: '30px',
-    height: '30px',
-    border: '2px solid #f3f3f3',
-    borderTop: '2px solid #667eea',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '10px',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '10px',
-  },
-  title: {
-    margin: 0,
-    color: '#333',
-    fontSize: '18px',
-    fontWeight: '600',
-  },
-  addButton: {
-    padding: '6px 12px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '13px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#c0392b',
-    },
-  },
-  description: {
-    margin: '0 0 20px 0',
-    color: '#666',
-    fontSize: '14px',
-  },
-  error: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  success: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px',
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    borderRadius: '5px',
-    marginBottom: '15px',
-  },
-  form: {
-    padding: '20px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  formTitle: {
-    margin: '0 0 15px 0',
-    color: '#333',
-    fontSize: '16px',
-  },
-  formGroup: {
-    marginBottom: '15px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
-    fontSize: '13px',
-    fontWeight: '500',
-    color: '#333',
-  },
-  input: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '4px',
-    border: '2px solid #e0e0e0',
-    fontSize: '13px',
-    '&:focus': {
-      outline: 'none',
-      borderColor: '#667eea',
-    },
-  },
-  formActions: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-  },
-  cancelButton: {
-    padding: '8px 16px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '13px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#e0e0e0',
-    },
-  },
-  submitButton: {
-    padding: '8px 16px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '13px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#c0392b',
-    },
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '40px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '8px',
-  },
-  emptyIcon: {
-    fontSize: '48px',
-    marginBottom: '15px',
-  },
-  emptyTitle: {
-    margin: '0 0 10px 0',
-    color: '#333',
-    fontSize: '16px',
-  },
-  emptyText: {
-    margin: 0,
-    color: '#999',
-    fontSize: '14px',
-  },
-  tableContainer: {
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '13px',
-  },
-  expiredRow: {
-    opacity: 0.6,
-  },
-  ipCode: {
-    padding: '2px 4px',
-    backgroundColor: '#f0f0f0',
-    borderRadius: '3px',
-    fontFamily: 'monospace',
-  },
-  statusBadge: {
-    padding: '3px 6px',
-    borderRadius: '3px',
-    fontSize: '11px',
-    color: 'white',
-  },
-  unblockButton: {
-    padding: '4px 8px',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '3px',
-    fontSize: '11px',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: '#2980b9',
-    },
-  },
-  pagination: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '15px',
-    marginTop: '20px',
-  },
-  pageButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    '&:disabled': {
-      opacity: 0.5,
-      cursor: 'not-allowed',
-    },
-  },
-  pageInfo: {
-    fontSize: '13px',
-    color: '#666',
-  },
 };
 
 export default IPBlocking;

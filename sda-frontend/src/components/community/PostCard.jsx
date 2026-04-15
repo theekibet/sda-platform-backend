@@ -9,6 +9,7 @@ import PostBookmark from './PostBookmark';
 import DonationProgressUpdater from './DonationProgressUpdater';
 import PostEditModal from './PostEditModal';
 import PostAnalytics from './PostAnalytics';
+import Avatar from '../common/Avatar';
 
 // Get API base URL from environment
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -90,7 +91,6 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
       });
 
       if (response.success) {
-        // Update local post data
         const updatedPost = {
           ...post,
           stats: {
@@ -118,7 +118,6 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
     try {
       const response = await communityService.removeResponse(post.id);
       if (response.success) {
-        // Update local post data
         const updatedPost = {
           ...post,
           stats: {
@@ -186,15 +185,13 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
     return icons[type] || '📝';
   };
 
-  const getAuthorInitials = (name) => {
-    if (!name) return '?';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
+  const normalizeUserForAvatar = (author) => {
+    if (!author) return null;
+    return {
+      name: author.name || 'Unknown',
+      avatarUrl: author.avatarUrl || null,
+    };
   };
-
-  const avatarUrl = getImageUrl(post.author?.avatarUrl);
-  const authorInitials = getAuthorInitials(post.author?.name);
 
   const calculateProgress = () => {
     if (!post.goalAmount || post.goalAmount === 0) return 0;
@@ -255,7 +252,7 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
               href={part.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-500 hover:underline break-all"
+              className="text-primary-600 hover:underline break-all"
               onClick={(e) => e.stopPropagation()}
             >
               {part.url}
@@ -274,54 +271,45 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
   const userHasSupported = post.userHasSupported || false;
 
   return (
-    <div className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 ${status?.label === 'Past Event' ? 'opacity-85' : ''}`}>
+    <div className={`glass-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${status?.label === 'Past Event' ? 'opacity-85' : ''}`}>
       {/* Header */}
       <div className="p-5 pb-0">
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white flex items-center justify-center font-semibold text-sm shadow-sm overflow-hidden">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={post.author?.name || 'User'}
-                  className="w-full h-full rounded-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.style.backgroundColor = '#667eea';
-                    e.target.parentElement.innerText = authorInitials;
-                  }}
-                />
-              ) : (
-                authorInitials
-              )}
-            </div>
+            <Avatar user={normalizeUserForAvatar(post.author)} size="medium" />
             <div>
               <div className="font-semibold text-gray-900">{post.author?.name || 'Anonymous'}</div>
-              <div className="text-xs text-gray-400">{formatTimeAgo(post.createdAt)}</div>
+              <div className="text-xs text-gray-500">{formatTimeAgo(post.createdAt)}</div>
             </div>
           </div>
-          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColorClass(post.type)}`}>
-            {getTypeIcon(post.type)} {post.type}
+          <div className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTypeColorClass(post.type)}`}>
+            {getTypeIcon(post.type)} {post.type.charAt(0).toUpperCase() + post.type.slice(1)}
           </div>
         </div>
 
-        {locationDisplay && (
-          <div className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs mb-2">
-            📍 {locationDisplay}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2 mb-2">
+          {locationDisplay && (
+            <div className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {locationDisplay}
+            </div>
+          )}
 
-        {status && (
-          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mb-2 ${status.className}`}>
-            {status.icon} {status.label}
-          </div>
-        )}
+          {status && (
+            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.className}`}>
+              <span>{status.icon}</span> {status.label}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Body */}
-      <div className="p-5 pt-0">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">{post.title}</h3>
-        <div className="text-gray-600 text-sm leading-relaxed mb-3 break-words">
+      <div className="p-5 pt-3">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-tight">{post.title}</h3>
+        <div className="text-gray-600 text-sm leading-relaxed mb-3 break-words whitespace-pre-wrap">
           {renderDescription()}
         </div>
 
@@ -330,7 +318,9 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
           {post.type === 'event' && post.eventDate && (
             <>
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-400">📅</span>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
                 <span className="text-gray-500">Date:</span>
                 <span className="text-gray-700">
                   {new Date(post.eventDate).toLocaleDateString('en-US', {
@@ -345,7 +335,9 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
               </div>
               {post.location && (
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">📍</span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  </svg>
                   <span className="text-gray-500">Venue:</span>
                   <span className="text-gray-700">{post.location}</span>
                 </div>
@@ -355,7 +347,7 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
 
           {(post.type === 'donation' || post.type === 'support') && post.goalAmount && (
             <div className="mt-2">
-              <div className="flex justify-between text-xs mb-1">
+              <div className="flex justify-between text-xs mb-1.5">
                 <span className="font-semibold text-green-600">KSh {(post.currentAmount || 0).toLocaleString()}</span>
                 <span className="text-gray-400">of KSh {post.goalAmount.toLocaleString()}</span>
               </div>
@@ -370,7 +362,7 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
               {canUpdateDonation() && post.type === 'donation' && (
                 <button
                   onClick={() => setShowDonationUpdater(true)}
-                  className="mt-2 text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition"
+                  className="mt-2 text-xs bg-primary-600 text-white px-3 py-1 rounded-full hover:bg-primary-700 transition"
                 >
                   + Add Donation
                 </button>
@@ -380,7 +372,9 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
 
           {post.type === 'support' && post.itemsNeeded && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-400">📦</span>
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
               <span className="text-gray-500">Needs:</span>
               <span className="text-gray-700">{post.itemsNeeded}</span>
             </div>
@@ -388,7 +382,9 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
 
           {post.type === 'prayer' && (
             <div className="flex items-center gap-2 text-sm bg-purple-50 p-2 rounded-lg">
-              <span className="text-gray-400">🙏</span>
+              <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
               <span className="text-gray-600">Prayer request from the Prayer Wall</span>
             </div>
           )}
@@ -398,12 +394,18 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
           <div className="flex flex-wrap gap-3 mt-3 pt-2 border-t border-gray-100 text-sm">
             {post.contactPhone && (
               <div className="flex items-center gap-1 text-gray-500">
-                📞 <a href={`tel:${post.contactPhone}`} className="text-primary-500 hover:underline">{post.contactPhone}</a>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                <a href={`tel:${post.contactPhone}`} className="text-primary-600 hover:underline">{post.contactPhone}</a>
               </div>
             )}
             {post.contactEmail && (
               <div className="flex items-center gap-1 text-gray-500">
-                ✉️ <a href={`mailto:${post.contactEmail}`} className="text-primary-500 hover:underline">{post.contactEmail}</a>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <a href={`mailto:${post.contactEmail}`} className="text-primary-600 hover:underline">{post.contactEmail}</a>
               </div>
             )}
           </div>
@@ -411,17 +413,23 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-3 bg-gray-50 rounded-b-xl border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
+      <div className="px-5 py-3 bg-gray-50/80 rounded-b-xl border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
         {/* Support Count Display */}
         <div className="flex flex-wrap gap-3 text-xs text-gray-500">
           {supportCount > 0 && (
             <div className="flex items-center gap-1">
-              🙏 {supportCount} {supportCount === 1 ? 'support' : 'supports'}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              {supportCount} {supportCount === 1 ? 'support' : 'supports'}
             </div>
           )}
           {commentCount > 0 && (
             <div className="flex items-center gap-1">
-              💬 {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
             </div>
           )}
           {!supportCount && !commentCount && (
@@ -429,25 +437,27 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Support Button */}
           {!userHasSupported ? (
             <div className="relative">
               <button
                 onClick={() => setShowResponseMenu(!showResponseMenu)}
                 disabled={submittingResponse}
-                className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-primary-500 text-white hover:bg-primary-600 transition-all duration-200 cursor-pointer text-sm disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-primary-600 text-white hover:bg-primary-700 transition-all text-sm font-medium disabled:opacity-50"
               >
-                <span className="text-base">🙏</span>
-                <span className="text-xs font-medium">Support</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                Support
               </button>
               {showResponseMenu && (
-                <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-64 z-10">
+                <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-xl border border-gray-100 p-3 w-64 z-10">
                   <textarea
                     value={responseComment}
                     onChange={(e) => setResponseComment(e.target.value)}
                     placeholder="Add a message of support (optional)..."
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                     rows="3"
                     maxLength="500"
                   />
@@ -455,13 +465,13 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
                     <button
                       onClick={handleSupport}
                       disabled={submittingResponse}
-                      className="flex-1 py-1.5 bg-primary-500 text-white rounded-md text-sm hover:bg-primary-600 transition"
+                      className="flex-1 py-1.5 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition"
                     >
                       {submittingResponse ? '...' : 'Support 🙏'}
                     </button>
                     <button
                       onClick={() => setShowResponseMenu(false)}
-                      className="py-1.5 px-3 bg-gray-200 text-gray-700 rounded-md text-sm hover:bg-gray-300 transition"
+                      className="py-1.5 px-3 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
                     >
                       Cancel
                     </button>
@@ -473,10 +483,12 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
             <button
               onClick={handleRemoveSupport}
               disabled={submittingResponse}
-              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 transition-all duration-200 cursor-pointer text-sm disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 transition-all text-sm font-medium disabled:opacity-50"
             >
-              <span className="text-base">🙏</span>
-              <span className="text-xs font-medium">Supported</span>
+              <svg className="w-4 h-4" fill="currentColor" stroke="none" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              Supported
             </button>
           )}
 
@@ -484,10 +496,12 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
           
           <button
             onClick={() => setShowShareMenu(true)}
-            className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+            className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition"
             title="Share"
           >
-            📤
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
           </button>
           
           <ReportButton
@@ -502,20 +516,24 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
           {canViewAnalytics() && (
             <button
               onClick={() => setShowAnalytics(true)}
-              className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+              className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition"
               title="View Analytics"
             >
-              📊
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
             </button>
           )}
           
           {canEdit() && (
             <button
               onClick={() => setShowEditModal(true)}
-              className="p-1.5 text-gray-400 hover:text-primary-500 rounded-md transition"
+              className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition"
               title="Edit"
             >
-              ✏️
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </button>
           )}
           
@@ -524,10 +542,12 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
               {!showDeleteConfirm ? (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-md transition"
+                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg transition"
                   title="Delete post"
                 >
-                  🗑️
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               ) : (
                 <div className="absolute right-0 bottom-full mb-2 flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1 text-xs shadow-md z-10 whitespace-nowrap">
@@ -535,13 +555,13 @@ const PostCard = ({ post, currentUser, formatDistance, onPostDeleted, onPostUpda
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="px-2 py-0.5 bg-red-600 text-white rounded hover:bg-red-700"
+                    className="px-2 py-0.5 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
                   >
                     {deleting ? '...' : 'Yes'}
                   </button>
                   <button
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="px-2 py-0.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    className="px-2 py-0.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-xs"
                   >
                     No
                   </button>

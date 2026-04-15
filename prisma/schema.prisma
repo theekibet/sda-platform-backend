@@ -10,11 +10,21 @@ datasource db {
 // ============ MEMBER MODEL ============
 model Member {
   id        String  @id @default(cuid())
+  googleId      String?   @unique 
   name      String
+  username            String?   @unique
+  lastUsernameChange  DateTime?
   email     String? @unique
+  emailVerified          Boolean   @default(false)
+  emailVerificationToken String?   @unique
+  emailVerificationExpires DateTime?
   phone     String? @unique
   password  String
   avatarUrl String?
+
+  authProvider       String   @default("email") 
+  lastLoginAt        DateTime?
+  lastLoginMethod    String?
 
   bio    String?
   age    Int?
@@ -29,9 +39,8 @@ model Member {
   isActive     Boolean   @default(true)
   lastActiveAt DateTime?
 
-  // REMOVED: isAdmin Boolean @default(false)
-  isModerator      Boolean   @default(false)  // ✅ NEW - elevated moderators
-  isSuperAdmin     Boolean   @default(false)  // ✅ You only
+  isModerator      Boolean   @default(false)  // elevated moderators
+  isSuperAdmin     Boolean   @default(false)  // only one
   isSuspended      Boolean   @default(false)
   suspendedUntil   DateTime?
   suspensionReason String?
@@ -217,7 +226,6 @@ model Group {
   tags        Tag[]
 
   isPrivate   Boolean @default(false)
-  location    String?
   imageUrl    String?
 
   rules           String?
@@ -227,11 +235,8 @@ model Group {
   allowAnonymous Boolean @default(false)
   sortOrder      Int?
 
-  isLocationBased Boolean @default(false)
-  meetingType     String  @default("online")
-
   memberCount   Int       @default(0)
-  discussionCount Int     @default(0)  // Track number of discussions
+  discussionCount Int     @default(0)
 
   createdById String
   createdBy   Member         @relation(fields: [createdById], references: [id])
@@ -242,7 +247,6 @@ model Group {
   updatedAt DateTime @updatedAt
 
   @@index([isDefault])
-  @@index([meetingType])
   @@map("groups")
 }
 

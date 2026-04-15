@@ -32,7 +32,7 @@ export class GroupsService {
   ) {}
 
   /**
-   * Helper method for distance calculation (Haversine formula)
+   * Helper method for distance calculation (Haversine formula) - kept for potential user-based features
    */
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number | null {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -76,12 +76,9 @@ export class GroupsService {
       description, 
       tagNames, 
       isPrivate, 
-      location, 
       rules, 
       requireApproval, 
       imageUrl,
-      isLocationBased,
-      meetingType,
     } = dto;
 
     // Handle tags
@@ -95,13 +92,10 @@ export class GroupsService {
         name,
         description,
         isPrivate: isPrivate || false,
-        location,
         rules,
         requireApproval: requireApproval ?? false,
         imageUrl,
         createdById: creatorId,
-        isLocationBased: isLocationBased || false,
-        meetingType: meetingType || 'online',
         tags: {
           connect: tags.map(t => ({ id: t.id })),
         },
@@ -137,7 +131,6 @@ export class GroupsService {
   }
 
   async getGroupById(groupId: string, userId?: string) {
-    // Fetch group with basic includes (tags, createdBy, counts)
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
       include: {
@@ -163,7 +156,6 @@ export class GroupsService {
       throw new NotFoundException('Group not found');
     }
 
-    // Determine user membership
     let userMembership: any = null;
     if (userId) {
       const membership = await this.prisma.groupMember.findUnique({
@@ -179,7 +171,6 @@ export class GroupsService {
       }
     }
 
-    // Privacy check: if group is private and user is not a member, return only public-safe fields
     if (group.isPrivate && !userMembership) {
       const formattedCreatedBy = this.formatAuthor(group.createdBy as AuthorData);
       return {
@@ -194,7 +185,6 @@ export class GroupsService {
       };
     }
 
-    // If user is a member or group is public, fetch the extra details
     const [members, recentDiscussions] = await Promise.all([
       this.prisma.groupMember.findMany({
         where: { groupId, status: 'approved' },
@@ -254,7 +244,6 @@ export class GroupsService {
       throw new ForbiddenException('Only admins can update group settings');
     }
 
-    // Handle tags update
     let tagConnect: { id: string }[] | undefined = undefined;
     if (dto.tagNames) {
       const tags = await this.tagsService.findOrCreateTags(dto.tagNames);
@@ -267,12 +256,9 @@ export class GroupsService {
         name: dto.name,
         description: dto.description,
         isPrivate: dto.isPrivate,
-        location: dto.location,
         rules: dto.rules,
         requireApproval: dto.requireApproval,
         imageUrl: dto.imageUrl,
-        isLocationBased: dto.isLocationBased,
-        meetingType: dto.meetingType,
         tags: tagConnect ? { set: tagConnect } : undefined,
       },
       include: {
@@ -533,7 +519,6 @@ export class GroupsService {
   
   async getDiscoverGroups(userId?: string) {
     let userTags: string[] = [];
-    let userCountry: string | null = null;
 
     if (userId) {
       const userMemberships = await this.prisma.groupMember.findMany({
@@ -552,21 +537,10 @@ export class GroupsService {
 
       const allTagNames = userMemberships.flatMap(m => m.group.tags.map(t => t.name));
       userTags = [...new Set(allTagNames)];
-
-      const user = await this.prisma.member.findUnique({
-        where: { id: userId },
-        select: { locationName: true },
-      });
-
-      if (user?.locationName) {
-        const parts = user.locationName.split(',');
-        userCountry = parts[parts.length - 1].trim();
-      }
     }
 
     const recommendations: any = {
       forYou: [],
-      popularInYourCountry: [],
       trending: [],
       newGroups: [],
     };
@@ -581,44 +555,6 @@ export class GroupsService {
             },
           },
           isPrivate: false,
-          ...(userId ? {
-            members: {
-              none: {
-                memberId: userId,
-                status: 'approved',
-              },
-            },
-          } : {}),
-        },
-        include: {
-          tags: true,
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-              locationName: true,
-            },
-          },
-          _count: {
-            select: { members: true, discussions: true },
-          },
-        },
-        orderBy: { 
-          members: {
-            _count: 'desc',
-          },
-        },
-        take: 5,
-      });
-    }
-
-    // Popular in your country
-    if (userCountry) {
-      recommendations.popularInYourCountry = await this.prisma.group.findMany({
-        where: {
-          isPrivate: false,
-          location: { contains: userCountry },
           ...(userId ? {
             members: {
               none: {
@@ -734,12 +670,10 @@ export class GroupsService {
       memberCount: g._count?.members || 0,
       discussionCount: g._count?.discussions || 0,
       recentActivity: g._count?.discussions || 0,
-      isOnline: g.meetingType === 'online' || g.location?.toLowerCase().includes('online'),
     }));
 
     return {
       forYou: formatGroups(recommendations.forYou),
-      popularInYourCountry: formatGroups(recommendations.popularInYourCountry),
       trending: formatGroups(recommendations.trending),
       newGroups: formatGroups(recommendations.newGroups),
     };
@@ -748,7 +682,6 @@ export class GroupsService {
   // ============ GROUP DISCUSSIONS ============
 
   async getGroupDiscussions(groupId: string, userId: string, page: number = 1, limit: number = 20) {
-    // Check membership for private groups
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
       select: { isPrivate: true },
@@ -823,9 +756,7 @@ export class GroupsService {
 
   async getGroups(filters: {
     tagNames?: string[];
-    location?: string;
     search?: string;
-    meetingType?: 'online' | 'in-person' | 'hybrid';
     sort?: 'popular' | 'new' | 'active';
     page?: number;
     limit?: number;
@@ -833,9 +764,7 @@ export class GroupsService {
   }) {
     const { 
       tagNames,
-      location, 
       search,
-      meetingType,
       sort = 'popular',
       page = 1, 
       limit = 20, 
@@ -855,8 +784,6 @@ export class GroupsService {
       };
     }
 
-    if (location) where.location = { contains: location, mode: 'insensitive' };
-    if (meetingType) where.meetingType = meetingType;
     if (search) where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
       { description: { contains: search, mode: 'insensitive' } },
@@ -917,7 +844,6 @@ export class GroupsService {
         } : null,
         memberCount: group._count?.members || 0,
         discussionCount: group._count?.discussions || 0,
-        isOnline: group.meetingType === 'online',
       };
     }));
 
