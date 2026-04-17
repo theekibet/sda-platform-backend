@@ -25,7 +25,7 @@ import VerseOfTheDay from './components/bible/VerseOfTheDay';
 import VerseBrowser from './components/bible/VerseBrowser';
 import VerseQueueStatus from './components/bible/VerseQueueStatus';
 import MySubmissions from './pages/members/MySubmissions';
-
+import DeletionRequests from './pages/admin/DeletionRequests';
 // Community Components
 import CommunityBoard from './components/community/CommunityBoard';
 import PostDetail from './components/community/PostDetail';
@@ -350,7 +350,13 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/faq" element={<Faq />} />
-
+        <Route path="/admin/deletion-requests" element={
+  <RequireUsername>
+    <Layout>
+      <DeletionRequests />
+    </Layout>
+  </RequireUsername>
+} />
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

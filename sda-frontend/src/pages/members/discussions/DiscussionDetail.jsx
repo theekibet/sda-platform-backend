@@ -172,7 +172,7 @@ function DiscussionDetail() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 pb-20">
-        {/* Back Button - now goes to /groups */}
+        {/* Back Button */}
         <button
           onClick={() => navigate('/groups')}
           className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
@@ -204,7 +204,7 @@ function DiscussionDetail() {
             {discussion.title}
           </h1>
 
-          {/* Author Info */}
+          {/* Author Info with badges */}
           <div className="flex items-center gap-3 mb-6">
             {discussion.isAnonymous ? (
               <>
@@ -220,7 +220,25 @@ function DiscussionDetail() {
               <>
                 <Avatar user={discussion.author} size="medium" />
                 <div>
-                  <p className="font-medium text-gray-900">{discussion.author?.name}</p>
+                  <div className="flex items-center flex-wrap gap-1">
+                    <p className="font-medium text-gray-900">{discussion.author?.name}</p>
+                    {discussion.author?.isSuperAdmin && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Super Admin
+                      </span>
+                    )}
+                    {discussion.author?.isModerator && !discussion.author?.isSuperAdmin && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Moderator
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <span>{formatTimeAgo(discussion.createdAt)}</span>
                     {discussion.group && (
@@ -386,7 +404,7 @@ function DiscussionDetail() {
   );
 }
 
-// Enhanced Comment Component
+// Enhanced Comment Component with badges for comment authors and replies
 function CommentItem({ comment, onReplySubmit, onUpvote, formatTimeAgo, currentUser, isUpvoting }) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -419,12 +437,28 @@ function CommentItem({ comment, onReplySubmit, onUpvote, formatTimeAgo, currentU
   return (
     <div className="glass-card hover:shadow-md transition-all duration-200">
       <div className="p-4 sm:p-5">
-        {/* Comment Header */}
+        {/* Comment Header with badges */}
         <div className="flex items-start gap-3 mb-3">
           <Avatar user={comment.author} size="medium" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-gray-900">{comment.author?.name}</span>
+              {comment.author?.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Super Admin
+                </span>
+              )}
+              {comment.author?.isModerator && !comment.author?.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Moderator
+                </span>
+              )}
               <span className="text-gray-400">·</span>
               <span className="text-sm text-gray-500">{formatTimeAgo(comment.createdAt)}</span>
             </div>
@@ -532,8 +566,24 @@ function CommentItem({ comment, onReplySubmit, onUpvote, formatTimeAgo, currentU
                   <Avatar user={reply.author} size="small" />
                   <div className="flex-1 min-w-0">
                     <div className="bg-white rounded-xl p-3 border border-gray-100">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="font-semibold text-sm text-gray-900">{reply.author?.name}</span>
+                        {reply.author?.isSuperAdmin && (
+                          <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            Super Admin
+                          </span>
+                        )}
+                        {reply.author?.isModerator && !reply.author?.isSuperAdmin && (
+                          <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-medium">
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Moderator
+                          </span>
+                        )}
                         <span className="text-gray-400">·</span>
                         <span className="text-xs text-gray-500">{formatTimeAgo(reply.createdAt)}</span>
                       </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import VerseOfTheDay from '../../components/bible/VerseOfTheDay';
 import TrendingPosts from '../../components/community/TrendingPosts';
 import FactOfTheDay from '../../components/common/FactOfTheDay';
+import AnnouncementBanner from '../admin/announcements/AnnouncementBanner';
 import { communityService } from '../../services/communityService';
 
 /* ══════════════════════════════════════════════════════════
@@ -315,8 +316,15 @@ const Greeting = () => {
    Dashboard
 ══════════════════════════════════════════════════════════ */
 const Dashboard = () => {
+  const { user } = useAuth();
+  
   const handlePostClick = (postId) => {
     window.location.href = `/community/post/${postId}`;
+  };
+
+  const handleAnnouncementView = (announcementId) => {
+    // Optional: Track announcement views for analytics
+    console.log('Announcement viewed:', announcementId);
   };
 
   const actions = [
@@ -328,6 +336,9 @@ const Dashboard = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
+      {/* Announcement Banner - Displayed at the top for all authenticated users */}
+      {user && <AnnouncementBanner onView={handleAnnouncementView} />}
+
       {/* Greeting Card */}
       <Greeting />
 
@@ -336,8 +347,6 @@ const Dashboard = () => {
 
       {/* Verse of the Day */}
       <VerseOfTheDay />
-
-
 
       {/* Trending Posts */}
       <section>

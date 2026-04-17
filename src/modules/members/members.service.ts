@@ -298,4 +298,100 @@ export class MembersService {
       cooldownDays: COOLDOWN_DAYS,
     };
   }
+
+async requestAccountDeletion(userId: string, reason?: string) {
+  // Check if user already has a pending request
+  const existingRequest = await this.prisma.accountDeletionRequest.findFirst({
+    where: {
+      userId,
+      status: { in: ['pending', 'approved'] },
+    },
+  });
+
+  if (existingRequest) {
+    throw new BadRequestException(
+      'You already have a pending account deletion request. Our team will review it shortly.'
+    );
+  }
+
+  // Create deletion request
+  const request = await this.prisma.accountDeletionRequest.create({
+    data: {
+      userId,
+      reason: reason || null,
+      status: 'pending',
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  // Notify super admins and moderators
+  const admins = await this.prisma.member.findMany({
+    where: {
+      OR: [
+        { isSuperAdmin: true },
+        { isModerator: true },
+      ],
+    },
+    select: { id: true },
+  });
+
+  // You can integrate with your notification service here
+  // For now, just return success
+
+  return {
+    success: true,
+    message: 'Your account deletion request has been submitted. An administrator will review it within 3-5 business days.',
+    requestId: request.id,
+  };
+}
+
+async getDeletionRequestStatus(userId: string) {
+  const request = await this.prisma.accountDeletionRequest.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!request) {
+    return { hasRequest: false };
+  }
+
+  return {
+    hasRequest: true,
+    status: request.status,
+    reason: request.reason,
+    createdAt: request.createdAt,
+    reviewedAt: request.reviewedAt,
+    adminNotes: request.adminNotes,
+    scheduledFor: request.scheduledFor,
+  };
+}
+
+async cancelDeletionRequest(userId: string) {
+  const request = await this.prisma.accountDeletionRequest.findFirst({
+    where: {
+      userId,
+      status: 'pending',
+    },
+  });
+
+  if (!request) {
+    throw new NotFoundException('No pending deletion request found');
+  }
+
+  await this.prisma.accountDeletionRequest.delete({
+    where: { id: request.id },
+  });
+
+  return {
+    success: true,
+    message: 'Your deletion request has been cancelled.',
+  };
+}
 }

@@ -21,22 +21,23 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/learning', icon: '📚', label: 'Learning Hub' },
   ];
 
-  // Links available to all moderators (including super admins) – no duplicate Dashboard
+  // ✅ MODERATOR LINKS - Only content and verse moderation (no security/analytics/announcements)
   const moderatorLinks = [
     { path: '/admin/moderation', icon: '📝', label: 'Content Moderation' },
     { path: '/admin/bible/queue', icon: '📖', label: 'Verse Moderation' },
-    { path: '/admin/announcements', icon: '📢', label: 'Announcements' },
-    { path: '/admin/analytics', icon: '📈', label: 'Analytics' },
-    { path: '/admin/security/sessions', icon: '🖥️', label: 'Sessions (View Only)' },
-    { path: '/admin/security/attempts', icon: '🔐', label: 'Login Attempts' },
-    { path: '/admin/health', icon: '🏥', label: 'System Health' },
   ];
 
-  // Links only for super admins
+  // Links only for super admins (full control including announcements, analytics, security)
   const superAdminLinks = [
     { path: '/admin/users', icon: '👥', label: 'User Management' },
+    { path: '/admin/deletion-requests', icon: '🗑️', label: 'Deletion Requests' },
+    { path: '/admin/announcements', icon: '📢', label: 'Announcements' },
     { path: '/admin/settings', icon: '⚙️', label: 'Settings' },
     { path: '/admin/security/ip', icon: '🔒', label: 'IP Blocking' },
+    { path: '/admin/security/sessions', icon: '🖥️', label: 'User Sessions' },
+    { path: '/admin/security/attempts', icon: '🔐', label: 'Login Attempts' },
+    { path: '/admin/analytics', icon: '📈', label: 'Analytics' },
+    { path: '/admin/health', icon: '🏥', label: 'System Health' },
     { path: '/admin/backups', icon: '💾', label: 'Backups' },
   ];
 
@@ -108,7 +109,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               <p className="text-xs text-gray-400 truncate">{user?.email || ''}</p>
             </div>
           </div>
-          {/* ✅ Fixed role badge: Super Admin first, then Moderator */}
+          {/* Role badge: Super Admin first, then Moderator */}
           {isSuperAdmin && (
             <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -148,7 +149,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             ))}
           </div>
 
-          {/* Moderation Tools Section (for both moderators and super admins) */}
+          {/* Moderation Tools Section - Only for users with moderator access (both moderators and super admins see this) */}
           {hasModeratorAccess && (
             <div className="space-y-1.5">
               <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2 flex items-center gap-1">
@@ -163,7 +164,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* Super Admin Section (only for super admins) */}
+          {/* Super Admin Section - Only for super admins (full administration tools) */}
           {isSuperAdmin && (
             <div className="space-y-1.5">
               <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2 flex items-center gap-1">

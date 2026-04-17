@@ -13,6 +13,8 @@ interface AuthorData {
   locationName: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  isModerator?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export interface FormattedAuthor {
@@ -21,6 +23,8 @@ export interface FormattedAuthor {
   avatarUrl: string | null;
   locationName: string | null;
   city: string | null;
+  isModerator: boolean;
+  isSuperAdmin: boolean;
 }
 
 interface UserLocation {
@@ -74,6 +78,8 @@ export class CommunityService {
       avatarUrl: author.avatarUrl,
       locationName: author.locationName,
       city: city,
+      isModerator: author.isModerator || false,
+      isSuperAdmin: author.isSuperAdmin || false,
     };
   }
 
@@ -135,7 +141,6 @@ export class CommunityService {
     if (dto.itemsNeeded) postData.itemsNeeded = dto.itemsNeeded;
     if (dto.contactPhone) postData.contactPhone = dto.contactPhone;
     if (dto.contactEmail) postData.contactEmail = dto.contactEmail;
-    // prayerRequestId removed - prayer posts are no longer allowed in community board
   
     const post = await this.prisma.communityPost.create({
       data: postData,
@@ -148,6 +153,8 @@ export class CommunityService {
             locationName: true,
             latitude: true,
             longitude: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
       },
@@ -199,6 +206,8 @@ export class CommunityService {
             locationName: true,
             latitude: true,
             longitude: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
         responses: true,
@@ -316,6 +325,8 @@ export class CommunityService {
               locationName: true,
               latitude: true,
               longitude: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
           responses: {
@@ -363,7 +374,6 @@ export class CommunityService {
       const supportResponses = responses.filter((r: any) => r.response === 'support');
       const commentsWithText = responses.filter((r: any) => r.comment && r.comment.trim());
       
-      // Calculate donation progress if applicable - FIXED TYPING
       let donationProgress: DonationProgress | null = null;
       if (post.type === 'donation' && post.goalAmount && post.goalAmount > 0) {
         const percentage = ((post.currentAmount || 0) / post.goalAmount) * 100;
@@ -375,7 +385,6 @@ export class CommunityService {
         };
       }
       
-      // Calculate urgency - FIXED TYPING
       let isUrgent = false;
       let daysUntilExpiry: number | null = null;
       if (post.expiresAt) {
@@ -427,6 +436,8 @@ export class CommunityService {
             locationName: true,
             latitude: true,
             longitude: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
         responses: {
@@ -465,7 +476,6 @@ export class CommunityService {
     const supportResponses = responses.filter(r => r.response === 'support');
     const commentsWithText = responses.filter(r => r.comment && r.comment.trim());
     
-    // Calculate donation progress if applicable - FIXED TYPING
     let donationProgress: DonationProgress | null = null;
     if (post.type === 'donation' && post.goalAmount && post.goalAmount > 0) {
       const percentage = ((post.currentAmount || 0) / post.goalAmount) * 100;
@@ -477,7 +487,6 @@ export class CommunityService {
       };
     }
     
-    // Calculate urgency - FIXED TYPING
     let isUrgent = false;
     let daysUntilExpiry: number | null = null;
     if (post.expiresAt) {
@@ -551,6 +560,8 @@ export class CommunityService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
       },
@@ -586,6 +597,8 @@ export class CommunityService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
       },
@@ -617,6 +630,8 @@ export class CommunityService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
       },
@@ -679,6 +694,8 @@ export class CommunityService {
               name: true,
               avatarUrl: true,
               locationName: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
           responses: true,
@@ -741,6 +758,8 @@ export class CommunityService {
               name: true,
               avatarUrl: true,
               locationName: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
           responses: true,
@@ -811,6 +830,8 @@ export class CommunityService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
         responses: true,
@@ -828,6 +849,7 @@ export class CommunityService {
 
       return {
         ...post,
+        author: this.formatAuthor(post.author as AuthorData),
         trendingScore,
         stats: {
           supportCount: supportResponses.length,
@@ -872,6 +894,8 @@ export class CommunityService {
                 name: true,
                 avatarUrl: true,
                 locationName: true,
+                isModerator: true,
+                isSuperAdmin: true,
               },
             },
           },
@@ -903,6 +927,8 @@ export class CommunityService {
                 name: true,
                 avatarUrl: true,
                 locationName: true,
+                isModerator: true,
+                isSuperAdmin: true,
               },
             },
             responses: true,
@@ -920,6 +946,7 @@ export class CommunityService {
         ...bookmark,
         post: {
           ...bookmark.post,
+          author: this.formatAuthor(bookmark.post.author as AuthorData),
           stats: {
             supportCount: supportResponses.length,
             commentCount: commentsWithText.length,

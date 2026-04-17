@@ -33,7 +33,13 @@ export class DiscussionsService {
   private get discussionListInclude() {
     return {
       author: {
-        select: { id: true, name: true, avatarUrl: true },
+        select: { 
+          id: true, 
+          name: true, 
+          avatarUrl: true,
+          isModerator: true,
+          isSuperAdmin: true,
+        },
       },
       tags: true,
       group: {
@@ -102,7 +108,15 @@ export class DiscussionsService {
         tags: { connect: tags.map((t) => ({ id: t.id })) },
       },
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
         tags: true,
         _count: { select: { comments: true, votes: true } },
       },
@@ -198,16 +212,40 @@ export class DiscussionsService {
     const discussion = await this.prisma.discussion.findUnique({
       where: { id },
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
         tags: true,
         group: { select: { id: true, name: true, isPrivate: true } },
         comments: {
           where: { parentId: null },
           include: {
-            author: { select: { id: true, name: true, avatarUrl: true } },
+            author: { 
+              select: { 
+                id: true, 
+                name: true, 
+                avatarUrl: true,
+                isModerator: true,
+                isSuperAdmin: true,
+              },
+            },
             replies: {
               include: {
-                author: { select: { id: true, name: true, avatarUrl: true } },
+                author: { 
+                  select: { 
+                    id: true, 
+                    name: true, 
+                    avatarUrl: true,
+                    isModerator: true,
+                    isSuperAdmin: true,
+                  },
+                },
               },
               orderBy: { createdAt: 'asc' },
             },
@@ -269,7 +307,7 @@ export class DiscussionsService {
       discussion.isAnonymous && !isOwnPost
         ? {
             ...discussion,
-            author: { id: '', name: 'Anonymous', avatarUrl: null },
+            author: { id: '', name: 'Anonymous', avatarUrl: null, isModerator: false, isSuperAdmin: false },
           }
         : discussion;
 
@@ -315,7 +353,15 @@ export class DiscussionsService {
         tags: tagConnect ? { set: tagConnect } : undefined,
       },
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
         tags: true,
       },
     });

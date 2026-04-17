@@ -202,7 +202,7 @@ export class BibleController {
     const submission = await this.prisma.sharedVerse.findFirst({
       where: {
         id,
-        userId: user.id, // Ensure user owns this submission
+        userId: user.id,
       },
       include: {
         verse: {
@@ -217,18 +217,17 @@ export class BibleController {
       return { success: false, message: 'Submission not found' };
     }
 
-// Calculate queue position for pending submissions
-let queuePosition: number | null = null;
-if (submission.status === 'pending') {
-  queuePosition = await this.prisma.sharedVerse.count({
-    where: {
-      status: 'pending',
-      createdAt: {
-        lt: submission.createdAt,
-      },
-    },
-  }) + 1;
-}
+    let queuePosition: number | null = null;
+    if (submission.status === 'pending') {
+      queuePosition = await this.prisma.sharedVerse.count({
+        where: {
+          status: 'pending',
+          createdAt: {
+            lt: submission.createdAt,
+          },
+        },
+      }) + 1;
+    }
 
     return {
       success: true,
@@ -248,7 +247,6 @@ if (submission.status === 'pending') {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    // Find the submission
     const submission = await this.prisma.sharedVerse.findFirst({
       where: {
         id,
@@ -260,12 +258,10 @@ if (submission.status === 'pending') {
       return { success: false, message: 'Submission not found' };
     }
 
-    // Only allow cancellation of pending submissions
     if (submission.status !== 'pending') {
       throw new ForbiddenException('Only pending submissions can be cancelled');
     }
 
-    // Delete the submission (as requested - no record kept)
     await this.prisma.sharedVerse.delete({
       where: { id },
     });
@@ -298,7 +294,6 @@ if (submission.status === 'pending') {
       },
     });
 
-    // Calculate positions for user's pending submissions
     const submissionsWithPosition = await Promise.all(
       mySubmissions.map(async (sub) => {
         const position = await this.prisma.sharedVerse.count({
@@ -359,11 +354,9 @@ if (submission.status === 'pending') {
     try {
       const today = new Date();
       
-      // Start of day (00:00:00) in local time
       const startOfDay = new Date(today);
       startOfDay.setHours(0, 0, 0, 0);
       
-      // End of day (23:59:59.999) in local time
       const endOfDay = new Date(today);
       endOfDay.setHours(23, 59, 59, 999);
       
@@ -387,11 +380,14 @@ if (submission.status === 'pending') {
             select: {
               id: true,
               name: true,
+              avatarUrl: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
         },
         orderBy: {
-          scheduledFor: 'asc', // Get the earliest one if multiple
+          scheduledFor: 'asc',
         },
       });
       
@@ -400,7 +396,6 @@ if (submission.status === 'pending') {
         return { success: true, data: todaysVerse };
       }
       
-      // If no published verse for today, check for scheduled verses that should be published
       const scheduledForToday = await this.prisma.sharedVerse.findFirst({
         where: {
           scheduledFor: {
@@ -419,13 +414,15 @@ if (submission.status === 'pending') {
             select: {
               id: true,
               name: true,
+              avatarUrl: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
         },
       });
       
       if (scheduledForToday) {
-        // Auto-publish it
         this.logger.log(`Auto-publishing scheduled verse for today: ${scheduledForToday.verse.reference}`);
         
         const published = await this.prisma.sharedVerse.update({
@@ -441,6 +438,9 @@ if (submission.status === 'pending') {
               select: {
                 id: true,
                 name: true,
+                avatarUrl: true,
+                isModerator: true,
+                isSuperAdmin: true,
               },
             },
           },
@@ -449,7 +449,6 @@ if (submission.status === 'pending') {
         return { success: true, data: published };
       }
       
-      // Fallback to a random verse if none scheduled
       this.logger.log('No verse found for today, returning random verse');
       const randomVerse = await this.bibleApi.getRandomVerse();
       return {
@@ -463,7 +462,6 @@ if (submission.status === 'pending') {
     } catch (error) {
       this.logger.error(`Error in getTodaysVerse: ${error.message}`);
       
-      // Ultimate fallback - hardcoded verse
       return {
         success: true,
         data: {

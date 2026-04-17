@@ -2440,4 +2440,188 @@ export class AdminService {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
+  // Add to src/modules/admin/admin.service.ts
+
+async getDeletionRequests(query: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const { status, page = 1, limit = 20 } = query;
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+  if (status) where.status = status;
+
+  const [requests, total] = await Promise.all([
+    this.prisma.accountDeletionRequest.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            createdAt: true,
+            lastActiveAt: true,
+            prayerRequests: { take: 1, select: { id: true } },
+            testimonies: { take: 1, select: { id: true } },
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      skip,
+      take: limit,
+    }),
+    this.prisma.accountDeletionRequest.count({ where }),
+  ]);
+
+  return {
+    requests,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  };
 }
+
+async getDeletionRequestStats() {
+  const [pending, approved, rejected, completed] = await Promise.all([
+    this.prisma.accountDeletionRequest.count({ where: { status: 'pending' } }),
+    this.prisma.accountDeletionRequest.count({ where: { status: 'approved' } }),
+    this.prisma.accountDeletionRequest.count({ where: { status: 'rejected' } }),
+    this.prisma.accountDeletionRequest.count({ where: { status: 'completed' } }),
+  ]);
+
+  return { pending, approved, rejected, completed };
+}
+
+async processDeletionRequest(
+  adminId: string,
+  requestId: string,
+  action: 'approve' | 'reject',
+  adminNotes?: string
+) {
+  const request = await this.prisma.accountDeletionRequest.findUnique({
+    where: { id: requestId },
+    include: { user: true },
+  });
+
+  if (!request) {
+    throw new NotFoundException('Deletion request not found');
+  }
+
+  if (request.status !== 'pending') {
+    throw new BadRequestException(`Request already ${request.status}`);
+  }
+
+  // Super admin accounts cannot be deleted via requests
+  if (request.user.isSuperAdmin) {
+    throw new ForbiddenException('Super admin accounts cannot be deleted via deletion requests');
+  }
+
+  const now = new Date();
+
+  if (action === 'approve') {
+    // Schedule deletion for 7 days from now (grace period)
+    const scheduledFor = new Date();
+    scheduledFor.setDate(scheduledFor.getDate() + 7);
+
+    await this.prisma.accountDeletionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'approved',
+        reviewedBy: adminId,
+        reviewedAt: now,
+        adminNotes: adminNotes || null,
+        scheduledFor,
+      },
+    });
+
+    // Send notification to user about approval and scheduled deletion
+    // ... notification logic
+
+    return {
+      success: true,
+      message: 'Deletion request approved. User will be notified and account will be deleted in 7 days.',
+      scheduledFor,
+    };
+  } else {
+    // Reject
+    await this.prisma.accountDeletionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'rejected',
+        reviewedBy: adminId,
+        reviewedAt: now,
+        adminNotes: adminNotes || null,
+      },
+    });
+
+    // Send notification to user about rejection
+    // ... notification logic
+
+    return {
+      success: true,
+      message: 'Deletion request rejected.',
+    };
+  }
+}
+
+async executeDeletion(userId: string) {
+  // Check if there's an approved request
+  const request = await this.prisma.accountDeletionRequest.findFirst({
+    where: {
+      userId,
+      status: 'approved',
+      scheduledFor: { lte: new Date() },
+    },
+  });
+
+  if (!request) {
+    throw new BadRequestException('No approved deletion request found');
+  }
+
+  // Delete user data
+  const user = await this.prisma.member.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+
+  // Store user info for audit before deletion
+  const userEmail = user.email;
+  const userName = user.name;
+
+  // Delete user (cascade will handle related records)
+  await this.prisma.member.delete({
+    where: { id: userId },
+  });
+
+  // Mark request as completed
+  await this.prisma.accountDeletionRequest.update({
+    where: { id: request.id },
+    data: {
+      status: 'completed',
+      completedAt: new Date(),
+    },
+  });
+
+  // Log the deletion
+  console.log(`Account deleted: ${userName} (${userEmail})`);
+
+  return {
+    success: true,
+    message: 'Account deleted successfully',
+  };
+}
+}
+

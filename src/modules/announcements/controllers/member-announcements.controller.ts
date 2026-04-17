@@ -11,7 +11,8 @@ export class MemberAnnouncementsController {
 
   @Get('active')
   getActiveAnnouncements(@CurrentUser() user: any) {
-    return this.announcementsService.getActiveAnnouncements(user?.id);
+    // ✅ FIXED: Pass user.role as second parameter
+    return this.announcementsService.getActiveAnnouncements(user?.id, user?.role);
   }
 
   @Post(':id/view')

@@ -15,7 +15,7 @@ import {
 export class CreateCommunityPostDto {
   @IsString()
   @IsNotEmpty()
-  @IsIn(['event', 'support', 'donation', 'announcement', 'general'])
+  @IsIn(['event', 'support', 'donation', 'general'])  
   type: string;
 
   @IsString()
@@ -38,7 +38,6 @@ export class CreateCommunityPostDto {
   @MaxLength(200, { message: 'Location cannot exceed 200 characters' })
   location?: string;
 
-  // Support/Donation fields (optional)
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -65,6 +64,4 @@ export class CreateCommunityPostDto {
   @MaxLength(100, { message: 'Email cannot exceed 100 characters' })
   contactEmail?: string;
 
-  // Note: prayerRequestId field removed as prayer posts are no longer allowed in community board
-  // Prayer requests should only be created in the Prayer Wall feature
 }

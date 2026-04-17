@@ -4,18 +4,16 @@ import {
 } from '@nestjs/common';
 import { SecurityService } from './security.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ModeratorGuard } from '../../common/guards/moderator.guard'; // ✅ CHANGED from AdminGuard
-import { SuperAdminGuard } from '../../common/guards/super-admin.guard'; // ✅ ADDED
+import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { BlockIpDto } from './dto/block-ip.dto';
 import { RateLimitDto } from './dto/rate-limit.dto';
 
 @Controller('admin/security')
-@UseGuards(JwtAuthGuard, ModeratorGuard) // ✅ CHANGED: Base guard allows moderators
+@UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class SecurityController {
   constructor(private readonly securityService: SecurityService) {}
 
-  // ============ IP BLOCKING (Super Admin Only) ============
-
+  // ============ IP BLOCKING ============
   @Get('blocked-ips')
   getBlockedIPs(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
@@ -25,32 +23,27 @@ export class SecurityController {
   }
 
   @Post('block-ip')
-  @UseGuards(SuperAdminGuard) // ✅ ADDED: IP blocking is super admin only
   blockIP(@Body() dto: BlockIpDto) {
     return this.securityService.blockIP(dto);
   }
 
   @Delete('block-ip/:ip')
-  @UseGuards(SuperAdminGuard) // ✅ ADDED: IP unblocking is super admin only
   unblockIP(@Param('ip') ip: string) {
     return this.securityService.unblockIP(ip);
   }
 
-  // ============ RATE LIMITING (Super Admin Only) ============
-
+  // ============ RATE LIMITING ============
   @Get('rate-limits')
   getRateLimits() {
     return this.securityService.getRateLimits();
   }
 
   @Post('rate-limits')
-  @UseGuards(SuperAdminGuard) // ✅ ADDED: Rate limit changes are super admin only
   updateRateLimit(@Body() dto: RateLimitDto) {
     return this.securityService.updateRateLimit(dto);
   }
 
-  // ============ SESSION MANAGEMENT (Moderator + Super Admin) ============
-
+  // ============ SESSION MANAGEMENT ============
   @Get('sessions')
   getActiveSessions(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
@@ -69,8 +62,7 @@ export class SecurityController {
     return this.securityService.terminateAllUserSessions(userId);
   }
 
-  // ============ LOGIN ATTEMPTS (Moderator + Super Admin) ============
-
+  // ============ LOGIN ATTEMPTS ============
   @Get('login-attempts')
   getLoginAttempts(
     @Query('days', new DefaultValuePipe(7), ParseIntPipe) days?: number,

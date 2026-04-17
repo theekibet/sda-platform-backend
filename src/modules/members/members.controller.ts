@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { SetUsernameDto } from './dto/username.dto';
+import { DeleteAccountRequestDto } from './dto/delete-account.dto';
 
 @Controller('members')
 @UseGuards(JwtAuthGuard)
@@ -131,6 +132,28 @@ export class MembersController {
   @Get('profile/username/status')
   async getUsernameStatus(@CurrentUser() user: any) {
     return this.membersService.getUsernameStatus(user.id);
+  }
+
+  // ============ ACCOUNT DELETION REQUEST ENDPOINTS ============
+
+  @Post('profile/delete-request')
+  @HttpCode(HttpStatus.OK)
+  async requestAccountDeletion(
+    @CurrentUser() user: any,
+    @Body() dto: DeleteAccountRequestDto,
+  ) {
+    return this.membersService.requestAccountDeletion(user.id, dto.reason);
+  }
+
+  @Get('profile/delete-request/status')
+  async getDeletionRequestStatus(@CurrentUser() user: any) {
+    return this.membersService.getDeletionRequestStatus(user.id);
+  }
+
+  @Delete('profile/delete-request')
+  @HttpCode(HttpStatus.OK)
+  async cancelDeletionRequest(@CurrentUser() user: any) {
+    return this.membersService.cancelDeletionRequest(user.id);
   }
 
   // ============ BASIC MEMBER ENDPOINTS ============

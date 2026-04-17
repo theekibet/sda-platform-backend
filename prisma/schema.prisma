@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============ MEMBER MODEL ============
@@ -38,6 +39,8 @@ model Member {
 
   isActive     Boolean   @default(true)
   lastActiveAt DateTime?
+  deletionRequests        AccountDeletionRequest[]
+  reviewedDeletionRequests AccountDeletionRequest[] @relation("ReviewerDeletions")
 
   isModerator      Boolean   @default(false)  // elevated moderators
   isSuperAdmin     Boolean   @default(false)  // only one
@@ -855,6 +858,26 @@ model VerseComment {
 
   @@map("verse_comments")
 }
+model AccountDeletionRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  user         Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason       String?  
+  status       String   @default("pending") 
+  reviewedBy   String?
+  reviewer     Member?  @relation("ReviewerDeletions", fields: [reviewedBy], references: [id])
+  reviewedAt   DateTime?
+  adminNotes   String?  
+  scheduledFor DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 
 // ============ NOTIFICATIONS ============
 model Notification {

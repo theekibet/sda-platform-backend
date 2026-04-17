@@ -116,14 +116,12 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
   };
 
   const getSupportCount = (post) => {
-    // Check for supportCount in various possible locations in the response
     if (post.stats && typeof post.stats.supportCount === 'number') {
       return post.stats.supportCount;
     }
     if (post.supportCount !== undefined && typeof post.supportCount === 'number') {
       return post.supportCount;
     }
-    // Fallback for backward compatibility with old data structure
     if (post.stats && typeof post.stats.total === 'number') {
       return post.stats.total;
     }
@@ -295,7 +293,7 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
                   {truncateText(post.description, 100)}
                 </p>
                 
-                {/* Author with Avatar */}
+                {/* Author with Avatar and Badges */}
                 <div className="flex items-center gap-3 text-xs text-gray-400 mt-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     {avatarUrl ? (
@@ -320,9 +318,27 @@ const TrendingPosts = ({ limit = 5, onPostClick }) => {
                         {authorInitials}
                       </div>
                     )}
-                    <span className="text-gray-600 font-medium">
-                      {post.author?.name || 'Anonymous'}
-                    </span>
+                    <div className="flex items-center flex-wrap gap-1">
+                      <span className="text-gray-600 font-medium">
+                        {post.author?.name || 'Anonymous'}
+                      </span>
+                      {post.author?.isSuperAdmin && (
+                        <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          Super Admin
+                        </span>
+                      )}
+                      {post.author?.isModerator && !post.author?.isSuperAdmin && (
+                        <span className="inline-flex items-center gap-0.5 px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-medium">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          Moderator
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-gray-300">•</span>
                   <div className="flex items-center gap-1">

@@ -204,19 +204,47 @@ export const getEngagementMetrics = (days = 30) =>
   API.get(`/admin/analytics/engagement?days=${days}`);
 
 // ============ ADMIN ANNOUNCEMENTS ============
+// Create a new announcement (Super Admin only)
 export const createAnnouncement = (data) => API.post('/admin/announcements', data);
-export const getAnnouncements = (params = {}) => {
+
+// Get all announcements with pagination and filters (Super Admin only)
+// ✅ FIXED: Added config parameter for abort signal support
+export const getAnnouncements = (params = {}, config = {}) => {
   const queryParams = new URLSearchParams();
   if (params.page) queryParams.append('page', params.page);
   if (params.limit) queryParams.append('limit', params.limit);
   if (params.active) queryParams.append('active', params.active);
-  return API.get(`/admin/announcements?${queryParams.toString()}`);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.search) queryParams.append('search', params.search);
+  const url = `/admin/announcements${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  return API.get(url, config);
 };
-export const getActiveAnnouncements = () => API.get('/announcements/active');
+
+// Get active announcements for members/moderators (public endpoint)
+// ✅ FIXED: Added config parameter for abort signal support
+export const getActiveAnnouncements = (config = {}) => API.get('/announcements/active', config);
+
+// Get single announcement by ID
 export const getAnnouncementById = (id) => API.get(`/admin/announcements/${id}`);
+
+// Update announcement (Super Admin only)
 export const updateAnnouncement = (id, data) => API.put(`/admin/announcements/${id}`, data);
+
+// Delete announcement (Super Admin only)
 export const deleteAnnouncement = (id) => API.delete(`/admin/announcements/${id}`);
-export const markAnnouncementAsViewed = (id) => API.post(`/admin/announcements/${id}/view`);
+
+// Mark announcement as viewed by current user (members/moderators)
+export const markAnnouncementAsViewed = (id) => API.post(`/announcements/${id}/view`);
+
+// Get announcement view statistics (Super Admin only)
+export const getAnnouncementViews = (id) => API.get(`/admin/announcements/${id}/views`);
+
+// Bulk delete announcements (Super Admin only)
+export const bulkDeleteAnnouncements = (ids) => API.post('/admin/announcements/bulk-delete', { ids });
+
+// Bulk update announcement status (Super Admin only)
+export const bulkUpdateAnnouncementStatus = (ids, isActive) => 
+  API.post('/admin/announcements/bulk-update', { ids, isActive });
 
 // ============ ADMIN SETTINGS ============
 export const getSystemSettings = () => API.get('/admin/settings');
@@ -277,6 +305,7 @@ export const moderatePost = (postId, action, reason) =>
 export const warnUser = (userId, reason) => 
   API.post(`/moderator/users/${userId}/warn`, { reason });
 export const getModeratorStats = () => API.get('/moderator/stats');
+
 // ============ ANALYTICS EXPORT ============
 export const exportAnalytics = (type, dateRange, format = 'csv') => {
   const params = new URLSearchParams();
@@ -323,6 +352,29 @@ export const getBookmarkStatus = (postId) => API.get(`/community/posts/${postId}
 export const addBookmark = (postId) => API.post(`/community/posts/${postId}/bookmark`);
 export const removeBookmark = (postId) => API.delete(`/community/posts/${postId}/bookmark`);
 export const getBookmarks = () => API.get('/community/bookmarks');
+
+// ============ ACCOUNT DELETION REQUESTS ============
+export const requestAccountDeletion = (reason) => 
+  API.post('/members/profile/delete-request', { reason });
+
+export const getDeletionRequestStatus = () => 
+  API.get('/members/profile/delete-request/status');
+
+export const cancelDeletionRequest = () => 
+  API.delete('/members/profile/delete-request');
+
+// ============ ADMIN - DELETION REQUESTS ============
+export const getDeletionRequests = (params) => 
+  API.get('/admin/deletion-requests', { params });
+
+export const getDeletionRequestStats = () => 
+  API.get('/admin/deletion-requests/stats');
+
+export const approveDeletionRequest = (requestId, adminNotes) => 
+  API.post(`/admin/deletion-requests/${requestId}/approve`, { adminNotes });
+
+export const rejectDeletionRequest = (requestId, adminNotes) => 
+  API.post(`/admin/deletion-requests/${requestId}/reject`, { adminNotes });
 
 // ============ MY CONTENT METHODS ============
 export const getMyPosts = () => API.get('/community/posts/my');

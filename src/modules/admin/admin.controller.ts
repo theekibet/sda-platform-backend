@@ -6,31 +6,24 @@ import {
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ModeratorGuard } from '../../common/guards/moderator.guard'; // ✅ NEW
+import { ModeratorGuard } from '../../common/guards/moderator.guard';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserQueryDto } from './dto/user-query.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
 import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { BulkUserActionDto } from './dto/bulk-user-action.dto';
-// ============ IMPORTS FOR PHASE 3 ============
 import { ReportQueryDto } from '../reports/dto/report-query.dto';
 import { ResolveReportDto } from './dto/resolve-report.dto';
-// ============ IMPORTS FOR PHASE 4 ============
 import { DateRangeDto } from '../analytics/dto/date-range.dto';
-// ============ IMPORTS FOR PHASE 5 ============
 import { UpdateSettingDto } from '../settings/dto/update-setting.dto';
 import { FeatureFlagDto } from '../settings/dto/feature-flag.dto';
-// ============ IMPORTS FOR PHASE 6 ============
 import { CreateAnnouncementDto } from '../announcements/dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from '../announcements/dto/update-announcement.dto';
-// ============ IMPORTS FOR PHASE 7 ============
 import { BlockIpDto } from '../security/dto/block-ip.dto';
 import { RateLimitDto } from '../security/dto/rate-limit.dto';
-// ============ IMPORTS FOR PHASE 8 ============
 import { BackupDto } from '../maintenance/dto/backup.dto';
 
-// FIXED: Match the service's BulkActionResult type
 interface BulkActionResult {
   userId: string;
   action: string;
@@ -58,19 +51,18 @@ interface EngagementMetricsResponse {
 }
 
 @Controller('admin')
-@UseGuards(JwtAuthGuard, ModeratorGuard) // ✅ CHANGED: All routes need login + moderator/superadmin
+@UseGuards(JwtAuthGuard, ModeratorGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // ============ DASHBOARD ============
-
+  // ============ DASHBOARD (Super Admin Only) ============
   @Get('dashboard')
+  @UseGuards(SuperAdminGuard)
   getDashboardStats() {
     return this.adminService.getDashboardStats();
   }
 
   // ============ USER MANAGEMENT ============
-
   @Get('users')
   getUsers(@Query() query: UserQueryDto) {
     return this.adminService.getUsers(query);
@@ -90,17 +82,15 @@ export class AdminController {
     return this.adminService.suspendUser(admin.id, userId, dto);
   }
 
-  // ✅ SUPER ADMIN ONLY: Only you can assign/remove moderators
-  @Post('users/:userId/toggle-moderator') // ✅ CHANGED from toggle-admin
+  @Post('users/:userId/toggle-moderator')
   @UseGuards(SuperAdminGuard)
-  toggleModerator( // ✅ CHANGED from toggleAdmin
+  toggleModerator(
     @CurrentUser() admin: any,
     @Param('userId') userId: string,
   ) {
-    return this.adminService.toggleModerator(admin.id, userId); // ✅ CHANGED
+    return this.adminService.toggleModerator(admin.id, userId);
   }
 
-  // ✅ SUPER ADMIN ONLY: only super admin can reset other users' passwords
   @Post('users/reset-password')
   @UseGuards(SuperAdminGuard)
   adminResetPassword(
@@ -119,9 +109,6 @@ export class AdminController {
     return this.adminService.updateAdminNotes(admin.id, userId, notes);
   }
 
-  // ============ PHASE 1 ENDPOINTS ============
-
-  // ✅ SUPER ADMIN ONLY: prevents elevated moderators from deleting accounts
   @Delete('users/:userId')
   @UseGuards(SuperAdminGuard)
   deleteUser(
@@ -131,7 +118,6 @@ export class AdminController {
     return this.adminService.deleteUser(admin.id, userId);
   }
 
-  // ✅ SUPER ADMIN ONLY: bulk actions are too powerful for elevated moderators
   @Post('users/bulk')
   @UseGuards(SuperAdminGuard)
   bulkUserAction(
@@ -164,8 +150,42 @@ export class AdminController {
     res.status(HttpStatus.OK).json(users);
   }
 
-  // ============ PHASE 3 - REPORT MANAGEMENT ENDPOINTS ============
+  // ============ ACCOUNT DELETION REQUESTS ============
+  @Get('deletion-requests')
+  async getDeletionRequests(
+    @Query('status') status?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+  ) {
+    return this.adminService.getDeletionRequests({ status, page, limit });
+  }
 
+  @Get('deletion-requests/stats')
+  async getDeletionRequestStats() {
+    return this.adminService.getDeletionRequestStats();
+  }
+
+  @Post('deletion-requests/:requestId/approve')
+  @UseGuards(SuperAdminGuard)
+  async approveDeletionRequest(
+    @CurrentUser() admin: any,
+    @Param('requestId') requestId: string,
+    @Body('adminNotes') adminNotes?: string,
+  ) {
+    return this.adminService.processDeletionRequest(admin.id, requestId, 'approve', adminNotes);
+  }
+
+  @Post('deletion-requests/:requestId/reject')
+  @UseGuards(SuperAdminGuard)
+  async rejectDeletionRequest(
+    @CurrentUser() admin: any,
+    @Param('requestId') requestId: string,
+    @Body('adminNotes') adminNotes?: string,
+  ) {
+    return this.adminService.processDeletionRequest(admin.id, requestId, 'reject', adminNotes);
+  }
+
+  // ============ REPORT MANAGEMENT (Moderators can view and resolve reports) ============
   @Get('reports')
   getReports(@Query() query: ReportQueryDto) {
     return this.adminService.getReports(query);
@@ -204,30 +224,32 @@ export class AdminController {
     return this.adminService.getReportsByUser(userId);
   }
 
-  // ============ PHASE 4 - ANALYTICS ENDPOINTS ============
-
+  // ============ ANALYTICS (Super Admin Only) ============
   @Get('analytics/user-growth')
+  @UseGuards(SuperAdminGuard)
   getUserGrowth(@Query() dateRange: DateRangeDto) {
     return this.adminService.getUserGrowth(dateRange);
   }
 
   @Get('analytics/demographics')
+  @UseGuards(SuperAdminGuard)
   getUserDemographics() {
     return this.adminService.getUserDemographics();
   }
 
   @Get('analytics/content')
+  @UseGuards(SuperAdminGuard)
   getContentAnalytics(@Query() dateRange: DateRangeDto) {
     return this.adminService.getContentAnalytics(dateRange);
   }
 
   @Get('analytics/engagement')
+  @UseGuards(SuperAdminGuard)
   getEngagementMetrics(@Query('days') days?: number): Promise<EngagementMetricsResponse> {
     return this.adminService.getEngagementMetrics(days);
   }
 
-  // ============ PHASE 5 - SETTINGS ENDPOINTS ============
-
+  // ============ SETTINGS (Super Admin Only for write, read is public but settings read is admin) ============
   @Get('settings')
   getAllSettings() {
     return this.adminService.getAllSettings();
@@ -243,7 +265,6 @@ export class AdminController {
     return this.adminService.getSetting(key);
   }
 
-  // ✅ SUPER ADMIN ONLY: system settings changes are too sensitive
   @Put('settings/:key')
   @UseGuards(SuperAdminGuard)
   updateSetting(
@@ -263,7 +284,6 @@ export class AdminController {
     return this.adminService.getFeatureFlag(name);
   }
 
-  // ✅ SUPER ADMIN ONLY: feature flag changes affect the whole system
   @Put('features/:name')
   @UseGuards(SuperAdminGuard)
   updateFeatureFlag(
@@ -273,9 +293,9 @@ export class AdminController {
     return this.adminService.updateFeatureFlag(name, dto);
   }
 
-  // ============ PHASE 6 - ANNOUNCEMENTS ENDPOINTS ============
-
+  // ============ ANNOUNCEMENTS (Super Admin Only) ============
   @Post('announcements')
+  @UseGuards(SuperAdminGuard)
   createAnnouncement(
     @CurrentUser() admin: any,
     @Body() dto: CreateAnnouncementDto,
@@ -284,6 +304,7 @@ export class AdminController {
   }
 
   @Get('announcements')
+  @UseGuards(SuperAdminGuard)
   getAllAnnouncements(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
@@ -293,16 +314,19 @@ export class AdminController {
   }
 
   @Get('announcements/active')
+  @UseGuards(SuperAdminGuard)
   getActiveAnnouncements(@CurrentUser() user: any) {
     return this.adminService.getActiveAnnouncements(user?.id);
   }
 
   @Get('announcements/:id')
+  @UseGuards(SuperAdminGuard)
   getAnnouncementById(@Param('id') id: string) {
     return this.adminService.getAnnouncementById(id);
   }
 
   @Put('announcements/:id')
+  @UseGuards(SuperAdminGuard)
   updateAnnouncement(
     @CurrentUser() admin: any,
     @Param('id') id: string,
@@ -312,6 +336,7 @@ export class AdminController {
   }
 
   @Delete('announcements/:id')
+  @UseGuards(SuperAdminGuard)
   deleteAnnouncement(
     @CurrentUser() admin: any,
     @Param('id') id: string,
@@ -319,9 +344,9 @@ export class AdminController {
     return this.adminService.deleteAnnouncement(admin.id, id);
   }
 
-  // ============ PHASE 7 - SECURITY ENDPOINTS ============
-
+  // ============ SECURITY (Super Admin Only) ============
   @Get('security/blocked-ips')
+  @UseGuards(SuperAdminGuard)
   getBlockedIPs(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
@@ -329,14 +354,12 @@ export class AdminController {
     return this.adminService.getBlockedIPs(page, limit);
   }
 
-  // ✅ SUPER ADMIN ONLY: blocking/unblocking IPs is a critical security action
   @Post('security/block-ip')
   @UseGuards(SuperAdminGuard)
   blockIP(@Body() dto: BlockIpDto) {
     return this.adminService.blockIP(dto);
   }
 
-  // ✅ SUPER ADMIN ONLY
   @Delete('security/block-ip/:ip')
   @UseGuards(SuperAdminGuard)
   unblockIP(@Param('ip') ip: string) {
@@ -344,11 +367,11 @@ export class AdminController {
   }
 
   @Get('security/rate-limits')
+  @UseGuards(SuperAdminGuard)
   getRateLimits() {
     return this.adminService.getRateLimits();
   }
 
-  // ✅ SUPER ADMIN ONLY: rate limit changes affect all users
   @Post('security/rate-limits')
   @UseGuards(SuperAdminGuard)
   updateRateLimit(@Body() dto: RateLimitDto) {
@@ -356,6 +379,7 @@ export class AdminController {
   }
 
   @Get('security/sessions')
+  @UseGuards(SuperAdminGuard)
   getActiveSessions(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
@@ -364,16 +388,19 @@ export class AdminController {
   }
 
   @Delete('security/sessions/:sessionId')
+  @UseGuards(SuperAdminGuard)
   terminateSession(@Param('sessionId') sessionId: string) {
     return this.adminService.terminateSession(sessionId);
   }
 
   @Delete('security/sessions/user/:userId')
+  @UseGuards(SuperAdminGuard)
   terminateAllUserSessions(@Param('userId') userId: string) {
     return this.adminService.terminateAllUserSessions(userId);
   }
 
   @Get('security/login-attempts')
+  @UseGuards(SuperAdminGuard)
   getLoginAttempts(
     @Query('days', new DefaultValuePipe(7), ParseIntPipe) days?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
@@ -382,18 +409,15 @@ export class AdminController {
     return this.adminService.getLoginAttempts(days, page, limit);
   }
 
-  // ============ ADDED: GROUPED FAILED LOGIN ATTEMPTS ENDPOINT ============
   @Get('security/login-attempts/failed/grouped')
-  @UseGuards(JwtAuthGuard, ModeratorGuard)
+  @UseGuards(SuperAdminGuard)
   getFailedLoginAttempts(
     @Query('days', new DefaultValuePipe(7), ParseIntPipe) days?: number,
   ) {
     return this.adminService.getFailedLoginAttempts(days);
   }
 
-  // ============ PHASE 8 - MAINTENANCE ENDPOINTS ============
-
-  // ✅ SUPER ADMIN ONLY: backup/restore are critical system operations
+  // ============ MAINTENANCE (Super Admin Only) ============
   @Post('maintenance/backup/create')
   @UseGuards(SuperAdminGuard)
   createBackup(@Body() dto: BackupDto) {
@@ -401,11 +425,13 @@ export class AdminController {
   }
 
   @Get('maintenance/backup/list')
+  @UseGuards(SuperAdminGuard)
   getBackups() {
     return this.adminService.getBackups();
   }
 
   @Get('maintenance/backup/download/:id')
+  @UseGuards(SuperAdminGuard)
   async downloadBackup(
     @Param('id') id: string,
     @Res() res: Response,
@@ -416,14 +442,12 @@ export class AdminController {
     res.status(HttpStatus.OK).send(backup.data);
   }
 
-  // ✅ SUPER ADMIN ONLY: restore can overwrite all production data
   @Post('maintenance/backup/restore/:id')
   @UseGuards(SuperAdminGuard)
   restoreBackup(@Param('id') id: string) {
     return this.adminService.restoreBackup(id);
   }
 
-  // ✅ SUPER ADMIN ONLY
   @Delete('maintenance/backup/:id')
   @UseGuards(SuperAdminGuard)
   deleteBackup(@Param('id') id: string) {
@@ -431,11 +455,11 @@ export class AdminController {
   }
 
   @Get('maintenance/health')
+  @UseGuards(SuperAdminGuard)
   getSystemHealth() {
     return this.adminService.getSystemHealth();
   }
 
-  // ✅ SUPER ADMIN ONLY
   @Post('maintenance/cache/clear')
   @UseGuards(SuperAdminGuard)
   clearCache() {
@@ -443,18 +467,17 @@ export class AdminController {
   }
 
   @Get('maintenance/database/stats')
+  @UseGuards(SuperAdminGuard)
   getDatabaseStats() {
     return this.adminService.getDatabaseStats();
   }
 
-  // ✅ SUPER ADMIN ONLY
   @Post('maintenance/database/optimize')
   @UseGuards(SuperAdminGuard)
   optimizeDatabase() {
     return this.adminService.optimizeDatabase();
   }
 
-  // Helper method for CSV conversion
   private convertToCSV(users: any[]): string {
     if (users.length === 0) return '';
     const headers = Object.keys(users[0]).join(',');

@@ -2,7 +2,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ModeratorGuard } from '../../common/guards/moderator.guard';
+import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { DateRangeDto } from './dto/date-range.dto';
 
 // Define return types
@@ -35,7 +35,7 @@ interface EngagementMetricsResponse {
 }
 
 @Controller('admin/analytics')
-@UseGuards(JwtAuthGuard, ModeratorGuard)
+@UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
@@ -59,7 +59,7 @@ export class AnalyticsController {
     return this.analyticsService.getEngagementMetrics(days || 30);
   }
 
-  // ============ NEW: Authentication Analytics ============
+  // ============ Authentication Analytics ============
   @Get('auth')
   async getAuthAnalytics() {
     return this.analyticsService.getAuthAnalytics();

@@ -5,7 +5,7 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { TagsService } from '../tags/tags.service';
 
-// Simplified Author interface - no privacy fields
+// Author interface with role flags
 interface AuthorData {
   id: string;
   name: string;
@@ -13,15 +13,19 @@ interface AuthorData {
   locationName: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  isModerator?: boolean;
+  isSuperAdmin?: boolean;
 }
 
-// Simplified formatted author for frontend
+// Formatted author for frontend
 interface FormattedAuthor {
   id: string;
   name: string;
   avatarUrl: string | null;
   locationName: string | null;
   city: string | null;
+  isModerator: boolean;
+  isSuperAdmin: boolean;
 }
 
 @Injectable()
@@ -49,7 +53,7 @@ export class GroupsService {
   }
 
   /**
-   * Format author for frontend - extract city from locationName
+   * Format author for frontend - extract city from locationName and include role flags
    */
   private formatAuthor(author: AuthorData | null): FormattedAuthor | null {
     if (!author) return null;
@@ -65,6 +69,8 @@ export class GroupsService {
       avatarUrl: author.avatarUrl,
       locationName: author.locationName,
       city: city,
+      isModerator: author.isModerator || false,
+      isSuperAdmin: author.isSuperAdmin || false,
     };
   }
 
@@ -108,6 +114,8 @@ export class GroupsService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
       },
@@ -141,6 +149,8 @@ export class GroupsService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
         _count: {
@@ -195,6 +205,8 @@ export class GroupsService {
               name: true,
               avatarUrl: true,
               locationName: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
         },
@@ -203,7 +215,15 @@ export class GroupsService {
       this.prisma.discussion.findMany({
         where: { groupId, status: 'active' },
         include: {
-          author: { select: { id: true, name: true, avatarUrl: true } },
+          author: { 
+            select: { 
+              id: true, 
+              name: true, 
+              avatarUrl: true,
+              isModerator: true,
+              isSuperAdmin: true,
+            },
+          },
           _count: { select: { comments: true, votes: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -269,6 +289,8 @@ export class GroupsService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
       },
@@ -457,6 +479,8 @@ export class GroupsService {
                 name: true,
                 avatarUrl: true,
                 locationName: true,
+                isModerator: true,
+                isSuperAdmin: true,
               },
             },
             _count: {
@@ -572,6 +596,8 @@ export class GroupsService {
               name: true,
               avatarUrl: true,
               locationName: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
           _count: {
@@ -616,6 +642,8 @@ export class GroupsService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
         _count: {
@@ -654,6 +682,8 @@ export class GroupsService {
             name: true,
             avatarUrl: true,
             locationName: true,
+            isModerator: true,
+            isSuperAdmin: true,
           },
         },
         _count: {
@@ -720,6 +750,8 @@ export class GroupsService {
               id: true,
               name: true,
               avatarUrl: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
           tags: true,
@@ -812,6 +844,8 @@ export class GroupsService {
               name: true,
               avatarUrl: true,
               locationName: true,
+              isModerator: true,
+              isSuperAdmin: true,
             },
           },
           members: userId ? {

@@ -9,6 +9,7 @@ import {
 import { bibleService } from '../../services/bibleService';
 import VerseOfTheDay from '../../components/bible/VerseOfTheDay';
 import FactOfTheDay from '../../components/common/FactOfTheDay';
+import AnnouncementBanner from '../admin/announcements/AnnouncementBanner';
 
 /* ══════════════════════════════════════════════════════════
    Greeting Component (enhanced with weather & events)
@@ -329,6 +330,11 @@ function ModeratorDashboard() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const handleAnnouncementView = (announcementId) => {
+    // Optional: Track announcement views for analytics
+    console.log('Announcement viewed by moderator:', announcementId);
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -377,6 +383,9 @@ function ModeratorDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Announcement Banner - Displayed at the top for all authenticated users */}
+      {user && <AnnouncementBanner onView={handleAnnouncementView} />}
+
       {/* Enhanced Greeting Card with Weather & Events */}
       <Greeting />
 
@@ -385,7 +394,6 @@ function ModeratorDashboard() {
 
       {/* Verse of the Day */}
       <VerseOfTheDay />
-
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">

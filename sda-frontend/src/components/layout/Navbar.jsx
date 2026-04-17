@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import Avatar from '../common/Avatar';
 import NotificationDropdown from '../notifications/NotificationDropdown';
+import DeleteAccountModal from "../auth/DeleteAccountModal";
 
 // Heroicons SVG Components
 const Icons = {
@@ -74,6 +75,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
+  Trash: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  ),
   Logout: () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -99,6 +105,8 @@ const Navbar = ({ onMenuClick }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletionMessage, setDeletionMessage] = useState('');
   
   const notificationRef = useRef(null);
   const profileRef = useRef(null);
@@ -135,6 +143,13 @@ const Navbar = ({ onMenuClick }) => {
       setSearchQuery('');
       setIsMobileMenuOpen(false);
     }
+  };
+
+  const handleDeleteRequestSuccess = (message) => {
+    setDeletionMessage(message);
+    setIsProfileMenuOpen(false);
+    // Optional: Show a toast or alert
+    setTimeout(() => setDeletionMessage(''), 5000);
   };
 
   return (
@@ -293,6 +308,22 @@ const Navbar = ({ onMenuClick }) => {
                       </>
                     )}
                     
+                    {/* Danger Zone Section - Delete Account */}
+                    <hr className="my-1 border-gray-100" />
+                    <div className="px-3 py-1">
+                      <p className="text-xs text-gray-400 uppercase tracking-wider px-1 mb-1">Danger Zone</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsProfileMenuOpen(false);
+                        setShowDeleteModal(true);
+                      }}
+                      className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <span className="text-red-500"><Icons.Trash /></span>
+                      Delete Account
+                    </button>
+                    
                     <hr className="my-1 border-gray-100" />
                     <button
                       onClick={handleLogout}
@@ -401,13 +432,26 @@ const Navbar = ({ onMenuClick }) => {
                   <Link
                     to="/admin/dashboard"
                     className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    onClick={() => setIsProfileMenuOpen(false)}
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <span className="text-gray-500"><Icons.Cog /></span>
                     Admin Panel
                   </Link>
                 </>
               )}
+              
+              {/* Delete Account in mobile menu */}
+              <hr className="border-gray-100 my-1" />
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setShowDeleteModal(true);
+                }}
+                className="flex items-center gap-3 w-full text-left px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <span className="text-red-500"><Icons.Trash /></span>
+                Delete Account
+              </button>
               
               <hr className="border-gray-100 my-1" />
               <button
@@ -468,6 +512,20 @@ const Navbar = ({ onMenuClick }) => {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onSuccess={handleDeleteRequestSuccess}
+      />
+
+      {/* Success Message Toast (optional) */}
+      {deletionMessage && (
+        <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in-up">
+          {deletionMessage}
         </div>
       )}
     </nav>

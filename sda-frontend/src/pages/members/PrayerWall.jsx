@@ -120,14 +120,9 @@ function PrayerWall() {
     }
   };
 
-  // ✅ FIXED: Simplified optimistic update for praying
   const handlePray = async (requestId) => {
-    // If already prayed locally, don't send request
-    if (prayedSet.has(requestId)) {
-      return;
-    }
+    if (prayedSet.has(requestId)) return;
 
-    // Optimistic update
     setPrayedSet(prev => new Set(prev).add(requestId));
     setPrayerRequests(prev => prev.map(req =>
       req.id === requestId ? { ...req, prayedCount: (req.prayedCount || 0) + 1 } : req
@@ -138,9 +133,7 @@ function PrayerWall() {
 
     try {
       const response = await prayForRequest(requestId);
-      // If server says already prayed (shouldn't happen due to local check, but handle gracefully)
       if (response.data?.alreadyPrayed) {
-        // Rollback optimistic update
         setPrayedSet(prev => { const next = new Set(prev); next.delete(requestId); return next; });
         setPrayerRequests(prev => prev.map(req =>
           req.id === requestId ? { ...req, prayedCount: Math.max(0, (req.prayedCount || 0) - 1) } : req
@@ -150,7 +143,6 @@ function PrayerWall() {
         ));
       }
     } catch (error) {
-      // Rollback on error
       setPrayedSet(prev => { const next = new Set(prev); next.delete(requestId); return next; });
       setPrayerRequests(prev => prev.map(req =>
         req.id === requestId ? { ...req, prayedCount: Math.max(0, (req.prayedCount || 0) - 1) } : req
@@ -162,14 +154,9 @@ function PrayerWall() {
     }
   };
 
-  // ✅ FIXED: Simplified optimistic update for encouraging
   const handleEncourage = async (testimonyId) => {
-    // If already encouraged locally, don't send request
-    if (encouragedSet.has(testimonyId)) {
-      return;
-    }
+    if (encouragedSet.has(testimonyId)) return;
 
-    // Optimistic update
     setEncouragedSet(prev => new Set(prev).add(testimonyId));
     setTestimonies(prev => prev.map(t =>
       t.id === testimonyId ? { ...t, encouragedCount: (t.encouragedCount || 0) + 1 } : t
@@ -178,14 +165,12 @@ function PrayerWall() {
     try {
       const response = await encourageTestimony(testimonyId);
       if (response.data?.alreadyEncouraged) {
-        // Rollback
         setEncouragedSet(prev => { const next = new Set(prev); next.delete(testimonyId); return next; });
         setTestimonies(prev => prev.map(t =>
           t.id === testimonyId ? { ...t, encouragedCount: Math.max(0, (t.encouragedCount || 0) - 1) } : t
         ));
       }
     } catch (error) {
-      // Rollback on error
       setEncouragedSet(prev => { const next = new Set(prev); next.delete(testimonyId); return next; });
       setTestimonies(prev => prev.map(t =>
         t.id === testimonyId ? { ...t, encouragedCount: Math.max(0, (t.encouragedCount || 0) - 1) } : t
@@ -293,7 +278,6 @@ function PrayerWall() {
           <>
             {activeTab === 'prayer' && (
               <div className="space-y-8">
-                {/* Create Button */}
                 <button
                   onClick={() => setShowNewPrayerModal(true)}
                   className="w-full glass-card p-4 flex items-center justify-center gap-2 text-primary-600 font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 group"
@@ -304,7 +288,6 @@ function PrayerWall() {
                   Share a Prayer Request
                 </button>
 
-                {/* Trending Prayers */}
                 {trendingPrayers.length > 0 && (
                   <div className="glass-card p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -336,7 +319,6 @@ function PrayerWall() {
                   </div>
                 )}
 
-                {/* All Prayer Requests */}
                 <div className="glass-card p-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,7 +359,6 @@ function PrayerWall() {
 
             {activeTab === 'testimonies' && (
               <div className="space-y-8">
-                {/* Create Button */}
                 <button
                   onClick={() => setShowTestimonyModal(true)}
                   className="w-full glass-card p-4 flex items-center justify-center gap-2 text-primary-600 font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 group"
@@ -544,7 +525,7 @@ function PrayerWall() {
   );
 }
 
-// Prayer Card Component
+// Prayer Card Component with badges
 function PrayerCard({ prayer, isEditing, editContent, onEditChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, onPray, hasPrayed, formatTimeAgo, currentUserId, normalizeAvatar }) {
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
@@ -556,8 +537,28 @@ function PrayerCard({ prayer, isEditing, editContent, onEditChange, onSaveEdit, 
             <Avatar user={normalizeAvatar(prayer.author)} size="medium" />
           )}
           <div>
-            <span className="font-semibold text-gray-900">{prayer.isAnonymous ? 'Anonymous' : prayer.author?.name || 'Unknown'}</span>
-            <span className="text-xs text-gray-500 ml-2">{formatTimeAgo(prayer.createdAt)}</span>
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="font-semibold text-gray-900">
+                {prayer.isAnonymous ? 'Anonymous' : prayer.author?.name || 'Unknown'}
+              </span>
+              {!prayer.isAnonymous && prayer.author?.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Super Admin
+                </span>
+              )}
+              {!prayer.isAnonymous && prayer.author?.isModerator && !prayer.author?.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Moderator
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-gray-500">{formatTimeAgo(prayer.createdAt)}</span>
           </div>
         </div>
         {prayer.authorId === currentUserId && !isEditing && (
@@ -614,7 +615,7 @@ function PrayerCard({ prayer, isEditing, editContent, onEditChange, onSaveEdit, 
   );
 }
 
-// Testimony Card Component
+// Testimony Card Component with badges
 function TestimonyCard({ testimony, isEditing, editData, onEditChange, onSaveEdit, onCancelEdit, onStartEdit, onDelete, onEncourage, hasEncouraged, formatTimeAgo, currentUserId, myPrayerRequests, normalizeAvatar }) {
   return (
     <div className="glass-card p-6 hover:shadow-lg transition-all">
@@ -622,7 +623,27 @@ function TestimonyCard({ testimony, isEditing, editData, onEditChange, onSaveEdi
         <div className="flex items-center gap-3">
           <Avatar user={normalizeAvatar(testimony.author)} size="medium" />
           <div>
-            <span className="font-semibold text-gray-900 block">{testimony.author?.name || 'Unknown'}</span>
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="font-semibold text-gray-900 block">
+                {testimony.author?.name || 'Unknown'}
+              </span>
+              {testimony.author?.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Super Admin
+                </span>
+              )}
+              {testimony.author?.isModerator && !testimony.author?.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Moderator
+                </span>
+              )}
+            </div>
             <span className="text-xs text-gray-500">{formatTimeAgo(testimony.createdAt)}</span>
           </div>
         </div>

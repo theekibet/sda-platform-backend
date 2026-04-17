@@ -15,25 +15,29 @@ export class PrayerService {
 
   // ============ PRAYER REQUESTS ============
 
-  // FIXED: Always store authorId (even for anonymous) so user can edit/delete later
   async createPrayerRequest(userId: string | null, dto: CreatePrayerRequestDto, locationName?: string) {
     const { content, isAnonymous } = dto;
     return this.prisma.prayerRequest.create({
       data: {
         content,
-        authorId: userId, // ✅ Always store, even if anonymous
+        authorId: userId,
         isAnonymous: isAnonymous || false,
         locationName: locationName || null,
       },
       include: {
         author: !isAnonymous ? {
-          select: { id: true, name: true, avatarUrl: true },
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
         } : false,
       },
     });
   }
 
-  // FIXED: Use prayedCount field directly (not _count)
   async getPrayerRequests(currentUserId: string | null, locationName?: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const where = locationName ? { locationName } : {};
@@ -42,7 +46,15 @@ export class PrayerService {
       this.prisma.prayerRequest.findMany({
         where,
         include: {
-          author: { select: { id: true, name: true, avatarUrl: true } },
+          author: { 
+            select: { 
+              id: true, 
+              name: true, 
+              avatarUrl: true,
+              isModerator: true,
+              isSuperAdmin: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -66,9 +78,8 @@ export class PrayerService {
     return {
       requests: requests.map(r => ({
         ...r,
-        // Hide author if anonymous
         author: r.isAnonymous ? null : r.author,
-        prayedCount: r.prayedCount, // ✅ Use dedicated field
+        prayedCount: r.prayedCount,
         hasPrayed: userPrayerMap.get(r.id) || false,
       })),
       total,
@@ -85,12 +96,19 @@ export class PrayerService {
     });
   }
 
-  // FIXED: Use prayedCount field
   async getPrayerRequestById(id: string, currentUserId?: string) {
     const request = await this.prisma.prayerRequest.findUnique({
       where: { id },
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
         prayers: {
           include: { member: { select: { id: true, name: true, avatarUrl: true } } },
           orderBy: { createdAt: 'desc' },
@@ -111,7 +129,7 @@ export class PrayerService {
     return {
       ...request,
       author: request.isAnonymous ? null : request.author,
-      prayedCount: request.prayedCount, // ✅ Use field
+      prayedCount: request.prayedCount,
       hasPrayed,
     };
   }
@@ -119,14 +137,23 @@ export class PrayerService {
   async updatePrayerRequest(userId: string, prayerId: string, dto: UpdatePrayerRequestDto) {
     const prayer = await this.prisma.prayerRequest.findUnique({ where: { id: prayerId } });
     if (!prayer) throw new NotFoundException('Prayer request not found');
-    // ✅ Now works for anonymous prayers because authorId is stored
     if (prayer.authorId !== userId) throw new ForbiddenException('You can only update your own prayer requests');
 
     const { content } = dto;
     return this.prisma.prayerRequest.update({
       where: { id: prayerId },
       data: { content },
-      include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+      include: { 
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
+      },
     });
   }
 
@@ -137,7 +164,6 @@ export class PrayerService {
     await this.prisma.prayerRequest.delete({ where: { id: prayerId } });
   }
 
-  // ✅ FIXED: Transaction with increased timeout, notifications moved OUTSIDE
   async prayForRequest(userId: string, requestId: string) {
     const request = await this.prisma.prayerRequest.findUnique({
       where: { id: requestId },
@@ -145,7 +171,6 @@ export class PrayerService {
     });
     if (!request) throw new NotFoundException('Prayer request not found');
 
-    // Transaction with 10 second timeout - only database operations
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.prayerInteraction.findUnique({
         where: { requestId_memberId: { requestId, memberId: userId } },
@@ -161,13 +186,12 @@ export class PrayerService {
       });
 
       return { alreadyPrayed: false };
-    }, { timeout: 10000 }); // 10 seconds timeout
+    }, { timeout: 10000 });
 
     if (result.alreadyPrayed) {
       return { message: 'You already prayed for this request', alreadyPrayed: true };
     }
 
-    // ✅ Send notification AFTER transaction (fire and forget)
     if (request.authorId && !request.isAnonymous) {
       this.notificationService.createNotification({
         userId: request.authorId,
@@ -181,7 +205,6 @@ export class PrayerService {
     return { message: 'Prayer recorded', alreadyPrayed: false };
   }
 
-  // FIXED: Use prayedCount field for ordering
   async getTrendingPrayers(currentUserId: string | null, limit = 10) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -189,9 +212,17 @@ export class PrayerService {
     const requests = await this.prisma.prayerRequest.findMany({
       where: { createdAt: { gte: sevenDaysAgo } },
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
       },
-      orderBy: { prayedCount: 'desc' }, // ✅ Order by dedicated field
+      orderBy: { prayedCount: 'desc' },
       take: limit,
     });
 
@@ -210,7 +241,7 @@ export class PrayerService {
     return requests.map(r => ({
       ...r,
       author: r.isAnonymous ? null : r.author,
-      prayedCount: r.prayedCount, // ✅ Use field
+      prayedCount: r.prayedCount,
       hasPrayed: userPrayerMap.get(r.id) || false,
     }));
   }
@@ -228,19 +259,34 @@ export class PrayerService {
     return this.prisma.testimony.create({
       data,
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
         prayerRequest: { select: { id: true, content: true } },
       },
     });
   }
 
-  // FIXED: Use encouragedCount field directly
   async getTestimonies(currentUserId: string | null, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const [testimonies, total] = await Promise.all([
       this.prisma.testimony.findMany({
         include: {
-          author: { select: { id: true, name: true, avatarUrl: true } },
+          author: { 
+            select: { 
+              id: true, 
+              name: true, 
+              avatarUrl: true,
+              isModerator: true,
+              isSuperAdmin: true,
+            },
+          },
           prayerRequest: { select: { id: true, content: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -265,7 +311,7 @@ export class PrayerService {
     return {
       testimonies: testimonies.map(t => ({
         ...t,
-        encouragedCount: t.encouragedCount, // ✅ Use dedicated field
+        encouragedCount: t.encouragedCount,
         hasEncouraged: userEncouragementMap.get(t.id) || false,
       })),
       total,
@@ -298,7 +344,15 @@ export class PrayerService {
       where: { id: testimonyId },
       data: updateData,
       include: {
-        author: { select: { id: true, name: true, avatarUrl: true } },
+        author: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true,
+            isModerator: true,
+            isSuperAdmin: true,
+          },
+        },
         prayerRequest: { select: { id: true, content: true } },
       },
     });
@@ -311,7 +365,6 @@ export class PrayerService {
     await this.prisma.testimony.delete({ where: { id: testimonyId } });
   }
 
-  // ✅ FIXED: Transaction with increased timeout, notifications moved OUTSIDE
   async encourageTestimony(userId: string, testimonyId: string) {
     const testimony = await this.prisma.testimony.findUnique({
       where: { id: testimonyId },
@@ -319,7 +372,6 @@ export class PrayerService {
     });
     if (!testimony) throw new NotFoundException('Testimony not found');
 
-    // Transaction with 10 second timeout - only database operations
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.encouragement.findUnique({
         where: { testimonyId_memberId: { testimonyId, memberId: userId } },
@@ -335,13 +387,12 @@ export class PrayerService {
       });
 
       return { alreadyEncouraged: false };
-    }, { timeout: 10000 }); // 10 seconds timeout
+    }, { timeout: 10000 });
 
     if (result.alreadyEncouraged) {
       return { message: 'You already encouraged this testimony', alreadyEncouraged: true };
     }
 
-    // ✅ Send notification AFTER transaction (fire and forget)
     if (testimony.authorId) {
       this.notificationService.createNotification({
         userId: testimony.authorId,

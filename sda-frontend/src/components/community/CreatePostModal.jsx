@@ -25,11 +25,6 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
     </svg>
   ),
-  Speaker: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-    </svg>
-  ),
   Document: () => (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -88,11 +83,11 @@ const Icons = {
   )
 };
 
+// REMOVED 'announcement' from postTypes
 const postTypes = [
   { id: 'event', label: 'Event', icon: Icons.Calendar, color: 'blue', desc: 'Share upcoming gatherings' },
   { id: 'support', label: 'Support', icon: Icons.Heart, color: 'rose', desc: 'Request prayer or help' },
   { id: 'donation', label: 'Donation', icon: Icons.Gift, color: 'emerald', desc: 'Raise funds or items' },
-  { id: 'announcement', label: 'Announcement', icon: Icons.Speaker, color: 'amber', desc: 'Share important news' },
   { id: 'general', label: 'General', icon: Icons.Document, color: 'gray', desc: 'General discussions' },
 ];
 
@@ -222,13 +217,12 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
     }
   };
 
-  // Get color classes based on post type
+  // Get color classes based on post type (removed announcement)
   const getTypeColor = (type) => {
     const colors = {
       event: 'blue',
       support: 'rose',
       donation: 'emerald',
-      announcement: 'amber',
       general: 'gray'
     };
     return colors[type] || 'gray';
@@ -241,7 +235,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
       blue: 'focus:ring-blue-500 border-blue-200',
       rose: 'focus:ring-rose-500 border-rose-200',
       emerald: 'focus:ring-emerald-500 border-emerald-200',
-      amber: 'focus:ring-amber-500 border-amber-200',
       gray: 'focus:ring-gray-500 border-gray-200'
     };
 
@@ -350,24 +343,6 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
           </div>
         );
 
-      case 'announcement':
-        return (
-          <div className="animate-in slide-in-from-top-2 duration-300">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-1.5">
-              <Icons.Location />
-              Additional Details
-            </label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="Location or context for this announcement"
-              className={`w-full px-4 py-2.5 bg-white/50 border border-gray-300 rounded-xl focus:ring-2 ${colorClasses.amber} focus:border-transparent transition-all duration-200`}
-            />
-          </div>
-        );
-
       default:
         return null;
     }
@@ -428,7 +403,7 @@ function CreatePostModal({ onClose, onPostCreated, initialData = null, isEdit = 
               <label className="block text-sm font-semibold text-gray-700">
                 Post Type <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {postTypes.map((type) => {
                   const isSelected = postType === type.id;
                   const Icon = type.icon;

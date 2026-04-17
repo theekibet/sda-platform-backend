@@ -41,18 +41,21 @@ export class AnnouncementsService {
   async getAllAnnouncements(page = 1, limit = 20, active?: string) {
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    // ✅ SIMPLIFIED: Start with basic where
+    let where: any = {};
     
     if (active === 'true') {
-      where.isActive = true;
-      where.OR = [
-        { scheduledAt: null },
-        { scheduledAt: { lte: new Date() } },
-      ];
-      where.AND = [
-        { expiresAt: null },
-        { expiresAt: { gte: new Date() } },
-      ];
+      const now = new Date();
+      where = {
+        isActive: true,
+        // Simple approach: use NOT for the opposite conditions
+        scheduledAt: {
+          lte: now,
+        },
+        expiresAt: {
+          gte: now,
+        },
+      };
     }
 
     const [announcements, total] = await Promise.all([
@@ -69,9 +72,7 @@ export class AnnouncementsService {
             select: { views: true },
           },
         },
-        orderBy: [
-          { createdAt: 'desc' },
-        ],
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -89,42 +90,69 @@ export class AnnouncementsService {
     };
   }
 
-  async getActiveAnnouncements(userId?: string) {
+  // ✅ SIMPLIFIED: Get active announcements with proper null handling
+  async getActiveAnnouncements(userId?: string, userRole?: string) {
     const now = new Date();
 
-    const announcements = await this.prisma.announcement.findMany({
+    // First, get ALL active announcements (for debugging)
+    const allActive = await this.prisma.announcement.findMany({
       where: {
         isActive: true,
-        OR: [
-          { scheduledAt: null },
-          { scheduledAt: { lte: now } },
-        ],
-        AND: [
-          { expiresAt: null },
-          { expiresAt: { gte: now } },
-        ],
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!userId) {
-      return announcements;
-    }
+    console.log('[DEBUG] Total active announcements:', allActive.length);
 
-    // Check which ones user has viewed
-    const viewed = await this.prisma.announcementView.findMany({
-      where: {
-        userId,
-        announcementId: { in: announcements.map(a => a.id) },
-      },
+    // Now filter in JavaScript instead of Prisma query
+    const validAnnouncements = allActive.filter(a => {
+      const scheduledOk = !a.scheduledAt || a.scheduledAt <= now;
+      const expiresOk = !a.expiresAt || a.expiresAt >= now;
+      
+      // Role check
+      const roleOk = !a.targetRole || 
+                     a.targetRole === 'all' || 
+                     a.targetRole === userRole ||
+                     a.targetRole === null;
+
+      return scheduledOk && expiresOk && roleOk;
     });
 
-    const viewedIds = new Set(viewed.map(v => v.announcementId));
+    console.log('[DEBUG] Valid announcements after filter:', validAnnouncements.length);
 
-    return announcements.map(a => ({
-      ...a,
-      viewed: viewedIds.has(a.id),
-    }));
+    // Check viewed status if userId provided
+    if (userId && validAnnouncements.length > 0) {
+      const viewed = await this.prisma.announcementView.findMany({
+        where: {
+          userId,
+          announcementId: { in: validAnnouncements.map(a => a.id) },
+        },
+      });
+
+      const viewedIds = new Set(viewed.map(v => v.announcementId));
+
+      // Filter by specific target users
+      const filtered = validAnnouncements.filter(a => {
+        if (a.targetUsers) {
+          try {
+            const specificUsers = JSON.parse(a.targetUsers);
+            if (Array.isArray(specificUsers) && specificUsers.length > 0) {
+              return specificUsers.includes(userId);
+            }
+          } catch (e) {
+            // Include if parsing fails
+          }
+        }
+        return true;
+      });
+
+      return filtered.map(a => ({
+        ...a,
+        viewed: viewedIds.has(a.id),
+      }));
+    }
+
+    return validAnnouncements;
   }
 
   async getAnnouncementById(id: string) {
@@ -220,7 +248,6 @@ export class AnnouncementsService {
       throw new NotFoundException('Announcement not found');
     }
 
-    // Check if already viewed
     const existing = await this.prisma.announcementView.findUnique({
       where: {
         announcementId_userId: {
@@ -238,7 +265,6 @@ export class AnnouncementsService {
         },
       });
 
-      // Update view count
       await this.prisma.announcement.update({
         where: { id: announcementId },
         data: {
