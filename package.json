@@ -5,6 +5,10 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "18.17.0",
+    "npm": "9.8.0"
+  },
   "scripts": {
     "build": "nest build",
     "vercel-build": "echo '=== STARTING VERCEL BUILD ===' && npm run build:backend && npm run build:frontend && echo '=== VERCEL BUILD COMPLETE ==='",
