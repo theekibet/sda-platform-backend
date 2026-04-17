@@ -4,14 +4,14 @@
     "installCommand": "npm install",
     "framework": null,
     "functions": {
-      "vercel-func.js": {
+      "api/index.js": {
         "includeFiles": "dist/**"
       }
     },
     "routes": [
       {
         "src": "/api/(.*)",
-        "dest": "/vercel-func.js"
+        "dest": "/api/index.js"
       },
       {
         "src": "/",
