@@ -1,0 +1,27 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "vercel-func.js",
+        "use": "@vercel/node"
+      },
+      {
+        "src": "sda-frontend/dist/**",
+        "use": "@vercel/static"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/api/(.*)",
+        "dest": "vercel-func.js"
+      },
+      {
+        "src": "/",
+        "dest": "/sda-frontend/dist/index.html"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/sda-frontend/dist/$1"
+      }
+    ]
+  }
