@@ -1,0 +1,25 @@
+{
+    "buildCommand": "npm run vercel-build",
+    "outputDirectory": "public",
+    "installCommand": "npm install",
+    "framework": null,
+    "functions": {
+      "vercel-func.js": {
+        "includeFiles": "dist/**"
+      }
+    },
+    "routes": [
+      {
+        "src": "/api/(.*)",
+        "dest": "/vercel-func.js"
+      },
+      {
+        "src": "/",
+        "dest": "/index.html"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/$1"
+      }
+    ]
+  }
