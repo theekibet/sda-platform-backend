@@ -1,25 +1,48 @@
 {
-    "buildCommand": "npm install --legacy-peer-deps && npm run vercel-build",
-    "outputDirectory": "public",
-    "installCommand": "npm install --legacy-peer-deps",
-    "framework": null,
-    "functions": {
-      "api/index.js": {
-        "includeFiles": "dist/**"
-      }
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
     },
-    "routes": [
-      {
-        "src": "/api/(.*)",
-        "dest": "/api/index.js"
-      },
-      {
-        "src": "/",
-        "dest": "/index.html"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/$1"
-      }
-    ]
-  }
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "src": "/_next/(.*)",
+      "dest": "/_next/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "memory": 2048,
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=60"
+        }
+      ]
+    }
+  ]
+}
