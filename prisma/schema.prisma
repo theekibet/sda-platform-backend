@@ -55,7 +55,7 @@ model Member {
   prayerRequests PrayerRequest[]
   prayersGiven   PrayerInteraction[]
 
-  // Testimonies
+  // Testimonies //
   testimonies    Testimony[]
   encouragements Encouragement[]
 

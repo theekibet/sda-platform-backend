@@ -2,7 +2,6 @@ const { NestFactory } = require('@nestjs/core');
 const { ExpressAdapter } = require('@nestjs/platform-express');
 const express = require('express');
 
-// Use dynamic import for ESM compatibility
 let cachedApp = null;
 
 async function bootstrap() {
@@ -36,10 +35,9 @@ async function bootstrap() {
       credentials: true
     });
 
-    // Set API prefix
+
     app.setGlobalPrefix('api');
     
-    // Initialize app
     await app.init();
     
     cachedApp = expressApp;

@@ -5,7 +5,7 @@ A Christian community platform for youth fellowship, featuring Bible reading, pr
 ## Features
 - 📖 Bible Reader with multiple translations
 - 🙏 Prayer Wall
-- 💬 Community Forum
+- 💬 Community board and group discussions
 - 👥 Groups
 - 📍 Location-based connections
 - ✨ Verse of the Day
