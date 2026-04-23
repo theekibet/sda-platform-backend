@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm ci && cd sda-frontend && npm ci",
+  "outputDirectory": "sda-frontend/dist",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  }
+}
