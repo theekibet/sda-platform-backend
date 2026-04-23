@@ -1,4 +1,6 @@
 {
   "installCommand": "npm install && cd sda-frontend && npm install",
-  "buildCommand": "npm run vercel-build"
+  "buildCommand": "npm run build:backend",
+  "framework": null,
+  "outputDirectory": "dist"
 }
