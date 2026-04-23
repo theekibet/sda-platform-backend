@@ -1,6 +1,7 @@
 const { NestFactory } = require('@nestjs/core');
 const { ExpressAdapter } = require('@nestjs/platform-express');
 const express = require('express');
+const path = require('path');
 
 let cachedApp = null;
 
@@ -10,13 +11,12 @@ async function bootstrap() {
   }
 
   try {
-    // Dynamic import - works with both CommonJS and ESM builds
-    const { AppModule } = await import('../dist/app.module.js');
+    // Dynamic import with absolute path for better reliability
+    const distPath = path.join(process.cwd(), 'dist');
+    const { AppModule } = await import(path.join(distPath, 'app.module.js'));
 
-    // Create raw Express app first
     const expressApp = express();
     
-    // Create NestJS app with Express adapter
     const app = await NestFactory.create(
       AppModule,
       new ExpressAdapter(expressApp),
@@ -26,7 +26,6 @@ async function bootstrap() {
       }
     );
     
-    // CORS for Vercel + your frontend
     app.enableCors({
       origin: [
         process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '*',
@@ -34,7 +33,6 @@ async function bootstrap() {
       ],
       credentials: true
     });
-
 
     app.setGlobalPrefix('api');
     
