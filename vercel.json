@@ -3,13 +3,6 @@
   "buildCommand": "npm run build:backend",
   "framework": null,
   "outputDirectory": "dist",
-  "functions": {
-    "api/index.js": {
-      "runtime": "nodejs20.x",
-      "includeFiles": "dist/**",
-      "excludeFiles": "**/*.spec.ts"
-    }
-  },
   "routes": [
     {
       "src": "/api/(.*)",
@@ -19,8 +12,5 @@
       "src": "/(.*)",
       "dest": "/api/index.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
