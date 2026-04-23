@@ -1,4 +1,4 @@
 {
-  "installCommand": "npm ci && cd sda-frontend && npm ci",
+  "installCommand": "npm install && cd sda-frontend && npm install",
   "buildCommand": "npm run vercel-build"
 }
