@@ -57,7 +57,6 @@ Thumbs.db
 pids
 *.pid
 *.seed
-*.pid.lock
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -273,8 +272,6 @@ $RECYCLE.BIN/
 *.swp
 *.swo
 *~
-*.lock
-*.lockb
 *.orig
 *.bak
 *.patch
@@ -321,7 +318,6 @@ Session.vim
 *~
 \#*\#
 /.emacs.desktop
-/.emacs.desktop.lock
 .elisp-autofoma
 .\#*
 
@@ -393,10 +389,8 @@ playground.xcworkspace
 *.orig
 *.part
 *.cache
-*.lock
 *.pid
 *.seed
-*.pid.lock
 *.log.*
 
 # Archives
