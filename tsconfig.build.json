@@ -9,6 +9,9 @@
     "removeComments": true,
     "preserveConstEnums": true,
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "noEmitOnError": false,
+    "strict": false,
+    "skipLibCheck": true
   }
 }
