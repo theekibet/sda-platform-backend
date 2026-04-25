@@ -1,8 +1,6 @@
 {
-  "installCommand": "npm install && cd sda-frontend && npm install",
-  "buildCommand": "npm run build:backend",
   "framework": null,
-  "outputDirectory": "dist",
+  "buildCommand": "npm run build:backend",
   "routes": [
     {
       "src": "/api/(.*)",
