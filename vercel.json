@@ -1,14 +1,15 @@
 {
   "framework": null,
   "buildCommand": "npm run build:backend",
+  "outputDirectory": "dist",
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.js"
+      "dest": "/dist/main.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/api/index.js"
+      "dest": "/dist/main.js"
     }
   ]
 }
