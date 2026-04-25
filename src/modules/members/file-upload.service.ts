@@ -2,6 +2,17 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
 import * as streamifier from 'streamifier';
+import { Express } from 'express';
+
+// Define a type for the file to avoid Express namespace issues
+type MulterFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
 
 @Injectable()
 export class FileUploadService {
@@ -26,7 +37,7 @@ export class FileUploadService {
     }
   }
 
-  async uploadImage(file: Express.Multer.File): Promise<string> {
+  async uploadImage(file: MulterFile): Promise<string> {
     // Validate file type
     if (!file.mimetype.startsWith('image/')) {
       throw new BadRequestException('Only image files are allowed');
@@ -44,7 +55,7 @@ export class FileUploadService {
     }
   }
 
-  private async uploadToCloudinary(file: Express.Multer.File): Promise<string> {
+  private async uploadToCloudinary(file: MulterFile): Promise<string> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -66,7 +77,7 @@ export class FileUploadService {
     });
   }
 
-  private async saveLocally(file: Express.Multer.File): Promise<string> {
+  private async saveLocally(file: MulterFile): Promise<string> {
     const fs = require('fs').promises;
     const path = require('path');
     

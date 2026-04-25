@@ -17,6 +17,42 @@ export interface BibleSearchResult {
   passage: string;
 }
 
+// Add these interfaces for API response types
+interface ParameterizedVerse {
+  verse: number;
+  text: string;
+}
+
+interface ParameterizedAPIResponse {
+  verses?: ParameterizedVerse[];
+  translation?: any;
+}
+
+interface RandomVerseResponse {
+  book_id: string;
+  chapter: number;
+  verse: number;
+  text: string;
+}
+
+interface UserInputVerse {
+  book_name?: string;
+  book?: string;
+  chapter: number;
+  verse: number;
+  text: string;
+}
+
+interface UserInputAPIResponse {
+  verses?: UserInputVerse[];
+  reference?: string;
+  text?: string;
+  translation?: {
+    name?: string;
+    abbreviation?: string;
+  };
+}
+
 @Injectable()
 export class BibleApiService {
   private readonly logger = new Logger(BibleApiService.name);
@@ -125,7 +161,7 @@ export class BibleApiService {
         );
       }
       
-      const data = await response.json();
+      const data = await response.json() as UserInputAPIResponse;
       
       // Parse the response
       return this.parseVerseResponse(data);
@@ -159,7 +195,7 @@ export class BibleApiService {
         );
       }
       
-      const data = await response.json();
+      const data = await response.json() as UserInputAPIResponse;
       
       return this.parsePassageResponse(data);
     } catch (error) {
@@ -197,7 +233,7 @@ export class BibleApiService {
         );
       }
       
-      const data = await response.json();
+      const data = await response.json() as ParameterizedAPIResponse;
       
       // The Parameterized API returns an object with a 'verses' array
       // Structure: { translation: {...}, verses: [...] }
@@ -239,7 +275,7 @@ export class BibleApiService {
         );
       }
       
-      const data = await response.json();
+      const data = await response.json() as ParameterizedAPIResponse;
       
       // The Parameterized API returns an object with a 'verses' array
       if (!data.verses || !Array.isArray(data.verses)) {
@@ -279,7 +315,7 @@ export class BibleApiService {
         );
       }
       
-      const data = await response.json();
+      const data = await response.json() as RandomVerseResponse;
       
       // The random endpoint returns a single verse object directly (not wrapped in verses array)
       return {
@@ -316,7 +352,7 @@ export class BibleApiService {
       const response = await fetch(url);
       
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as UserInputAPIResponse;
         return this.parseVerseResponse(data);
       } else {
         this.logger.warn(`Random API returned ${response.status}, using fallback`);
@@ -422,7 +458,7 @@ export class BibleApiService {
    * @param bookId - The book ID
    * @param chapter - The chapter number
    */
-  private parseParameterizedResponse(verses: any[], bookId: string, chapter: number): BibleVerseResponse[] {
+  private parseParameterizedResponse(verses: ParameterizedVerse[], bookId: string, chapter: number): BibleVerseResponse[] {
     this.logger.log(`Parsing ${verses.length} verses from Parameterized API`);
     
     // Log first few verses for debugging
@@ -447,16 +483,23 @@ export class BibleApiService {
   /**
    * Parse single verse response from User Input API
    */
-  private parseVerseResponse(data: any): BibleVerseResponse {
+  private parseVerseResponse(data: UserInputAPIResponse): BibleVerseResponse {
     // Handle different response formats
-    const verses = data.verses || [data];
-    const firstVerse = Array.isArray(verses) ? verses[0] : verses;
+    let firstVerse: UserInputVerse;
+    
+    if (data.verses && Array.isArray(data.verses) && data.verses.length > 0) {
+      // If we have a verses array, use the first one
+      firstVerse = data.verses[0];
+    } else {
+      // Otherwise, treat the data itself as a verse object
+      firstVerse = data as unknown as UserInputVerse;
+    }
     
     return {
-      reference: data.reference || `${firstVerse.book_name} ${firstVerse.chapter}:${firstVerse.verse}`,
-      book: firstVerse.book_name || firstVerse.book,
-      chapter: parseInt(firstVerse.chapter),
-      verse: parseInt(firstVerse.verse),
+      reference: data.reference || `${firstVerse.book_name || firstVerse.book} ${firstVerse.chapter}:${firstVerse.verse}`,
+      book: firstVerse.book_name || firstVerse.book || '',
+      chapter: typeof firstVerse.chapter === 'number' ? firstVerse.chapter : parseInt(firstVerse.chapter as any),
+      verse: typeof firstVerse.verse === 'number' ? firstVerse.verse : parseInt(firstVerse.verse as any),
       text: data.text || firstVerse.text,
       translation: data.translation?.name || 'King James Version',
       translationCode: data.translation?.abbreviation?.toLowerCase() || 'kjv',
@@ -466,14 +509,14 @@ export class BibleApiService {
   /**
    * Parse passage response from User Input API (multiple verses)
    */
-  private parsePassageResponse(data: any): BibleSearchResult {
+  private parsePassageResponse(data: UserInputAPIResponse): BibleSearchResult {
     const verses = data.verses || [];
     
-    const parsedVerses = verses.map(v => ({
-      reference: `${v.book_name} ${v.chapter}:${v.verse}`,
-      book: v.book_name,
-      chapter: parseInt(v.chapter),
-      verse: parseInt(v.verse),
+    const parsedVerses = verses.map((v: UserInputVerse) => ({
+      reference: `${v.book_name || v.book} ${v.chapter}:${v.verse}`,
+      book: v.book_name || v.book || '',
+      chapter: typeof v.chapter === 'number' ? v.chapter : parseInt(v.chapter as any),
+      verse: typeof v.verse === 'number' ? v.verse : parseInt(v.verse as any),
       text: v.text,
       translation: data.translation?.name || 'King James Version',
       translationCode: data.translation?.abbreviation?.toLowerCase() || 'kjv',

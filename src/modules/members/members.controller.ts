@@ -24,6 +24,17 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { SetUsernameDto } from './dto/username.dto';
 import { DeleteAccountRequestDto } from './dto/delete-account.dto';
+import { Express } from 'express';
+
+// Define a type for the file to avoid Express namespace issues
+type MulterFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
 
 @Controller('members')
 @UseGuards(JwtAuthGuard)
@@ -68,7 +79,7 @@ export class MembersController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadProfilePicture(
     @CurrentUser() user: any,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: MulterFile,
   ) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
