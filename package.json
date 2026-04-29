@@ -10,12 +10,12 @@
     "npm": "10.x"
   },
   "scripts": {
-    "build": "npx prisma generate && tsc --project tsconfig.build.json",
+    "build": "npx prisma generate && tsc --build tsconfig.build.json --force",
     "vercel-build": "npm run build",
-    "start": "node dist/main",
+    "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/main.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
