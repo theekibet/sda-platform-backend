@@ -1,10 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "dist/main.js": {
-      "includeFiles": "prisma/**"
-    }
-  },
   "builds": [
     {
       "src": "dist/main.js",
