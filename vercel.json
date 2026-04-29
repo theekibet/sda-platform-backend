@@ -3,22 +3,10 @@
   "builds": [
     {
       "src": "dist/main.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "prisma/schema.prisma",
-          "prisma/migrations/**",
-          "node_modules/.prisma/**",
-          "node_modules/@prisma/client/**"
-        ]
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "dist/main.js"
-    },
     {
       "src": "/(.*)",
       "dest": "dist/main.js"
