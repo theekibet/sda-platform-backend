@@ -52,6 +52,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // ── CORS origins ───────────────────────────────────────────────────────────
+  // ✅ UPDATE THIS LINE: Added your production frontend URL to the default
   const corsOrigin = configService.get('CORS_ORIGIN', 'http://localhost:5173,https://sda-platform-frontend.vercel.app');
   const corsOrigins = corsOrigin.split(',').map((o: string) => o.trim());
 
@@ -109,6 +110,7 @@ async function bootstrap() {
   });
 
   // ── CORS (with WebSocket support) ──────────────────────────────────────────
+  // ✅ This is the main CORS configuration. The `origin` now pulls from the variable above.
   app.enableCors({
     origin: corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
