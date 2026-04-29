@@ -1,21 +1,9 @@
 {
   "version": 2,
-  "functions": {
-    "dist/main.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "builds": [
     {
       "src": "dist/main.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "prisma/**",
-          "node_modules/.prisma/**",
-          "node_modules/@prisma/client/**"
-        ]
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
