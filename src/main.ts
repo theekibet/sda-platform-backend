@@ -47,8 +47,12 @@ async function bootstrap() {
     logger.warn('Some features may not work correctly.');
   }
 
+  // ── Global API Prefix (CRITICAL FOR VERCEL) ────────────────────────────────
+  // This ensures all routes are accessible under /api/*
+  app.setGlobalPrefix('api');
+
   // ── CORS origins ───────────────────────────────────────────────────────────
-  const corsOrigin = configService.get('CORS_ORIGIN', 'http://localhost:5173');
+  const corsOrigin = configService.get('CORS_ORIGIN', 'http://localhost:5173,https://sda-platform-frontend.vercel.app');
   const corsOrigins = corsOrigin.split(',').map((o: string) => o.trim());
 
   // ── Helmet (security headers) ──────────────────────────────────────────────
@@ -121,6 +125,7 @@ async function bootstrap() {
 
   logger.log(`🚀 Application is running on: http://localhost:${port}`);
   logger.log(`🌍 Environment: ${nodeEnv}`);
+  logger.log(`🔗 Global API prefix: /api`);
   logger.log(`🔗 CORS enabled for: ${corsOrigins.join(', ')}`);
   logger.log(`📁 Static files served from: /uploads/`);
   logger.log(`🛡️ Security headers enabled (helmet)`);
@@ -141,4 +146,4 @@ async function bootstrap() {
 bootstrap().catch(error => {
   console.error('Failed to start application:', error);
   process.exit(1);
-});// cache-buster Thu Apr 23 20:52:07 EAT 2026
+});
